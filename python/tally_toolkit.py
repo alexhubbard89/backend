@@ -20,29 +20,15 @@ from unidecode import unidecode
 # urlparse.uses_netloc.append("postgres")
 # url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
     
-# def open_connection():
-#     connection = psycopg2.connect(
-#         database=url.path[1:],
-#         user=url.username,
-#         password=url.password,
-#         host=url.hostname,
-#         port=url.port
-#         )
-#     return connection
-
-urlparse.uses_netloc.append("postgres")
-creds = pd.read_json('/Users/Alexanderhubbard/Documents/projects/reps_app/app/db_creds.json').loc[0,'creds']
-
 def open_connection():
     connection = psycopg2.connect(
-        database=creds['database'],
-        user=creds['user'],
-        password=creds['password'],
-        host=creds['host'],
-        port=creds['port']
+        database=url.path[1:],
+        user=url.username,
+        password=url.password,
+        host=url.hostname,
+        port=url.port
         )
     return connection
-
 
 class user_info(object):
     """
