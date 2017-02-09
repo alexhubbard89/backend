@@ -9,20 +9,37 @@ import os
 import sys
 import requests
 from bs4 import BeautifulSoup
+from pandas.io.json import json_normalize
+from xmljson import badgerfish as bf
+from xml.etree.ElementTree import fromstring
 import datetime
 import re
 import us
+from unidecode import unidecode
     
+# urlparse.uses_netloc.append("postgres")
+# url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
+    
+# def open_connection():
+#     connection = psycopg2.connect(
+#         database=url.path[1:],
+#         user=url.username,
+#         password=url.password,
+#         host=url.hostname,
+#         port=url.port
+#         )
+#     return connection
+
 urlparse.uses_netloc.append("postgres")
-url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
-    
+creds = pd.read_json('/Users/Alexanderhubbard/Documents/projects/reps_app/app/db_creds.json').loc[0,'creds']
+
 def open_connection():
     connection = psycopg2.connect(
-        database=url.path[1:],
-        user=url.username,
-        password=url.password,
-        host=url.hostname,
-        port=url.port
+        database=creds['database'],
+        user=creds['user'],
+        password=creds['password'],
+        host=creds['host'],
+        port=creds['port']
         )
     return connection
 
@@ -329,7 +346,6 @@ class vote_collector(object):
         cursor = connection.cursor()
 
         for i in range(len(self.house_vote_menu)):
-            print i
             ## Remove special character from the title
             try:
                 self.house_vote_menu.loc[i, 'title_description'] = self.house_vote_menu.loc[i, 'title_description'].replace("'", "''")
@@ -411,13 +427,134 @@ class vote_collector(object):
         
         if num_rows == 0:
             self.to_db = 'No new vote menu data.'
+            print self.to_db
         if num_rows > 0:
             self.to_db = '{} new vote(s) in the data base.'.format(num_rows)
+            print self.to_db
             vote_collector.put_vote_menu(self)
 
-    def __init__(self, house_vote_menu=None, to_db=None):
+    def get_congress_votes(self):
+        master_house_votes = pd.DataFrame()
+        
+        for i in range(len(self.house_vote_menu)):
+            url = self.house_vote_menu.loc[i, 'roll_link']
+            print url
+            page =  requests.get(url)
+            df = json_normalize(pd.DataFrame(
+                    bf.data(fromstring(page.content))).loc['vote-data', 'rollcall-vote']['recorded-vote'])
+            try:
+                df.columns = ['member_full', 'bioguide_id', 'party', 'role', 'name', u'state', 'unaccented-name', 'vote']
+                df = df[['member_full', 'bioguide_id', 'party', 'role', u'state', 'vote']]
+            except:
+                df.columns = ['member_full','party', 'role', 'state', 'vote'] 
+                df.loc[:, 'bioguide_id'] = None
+                df = df[['member_full', 'bioguide_id', 'party', 'role', u'state', 'vote']]
+
+            df.loc[:, 'year'] = self.house_vote_menu.loc[i, 'date'].year
+            df.loc[:, 'roll'] = self.house_vote_menu.loc[i, 'roll']
+            df.loc[:, 'congress'] = self.house_vote_menu.loc[i, 'congress']
+            df.loc[:, 'session'] = self.house_vote_menu.loc[i, 'session']
+            df.loc[:, 'date'] = pd.to_datetime(
+                json_normalize(
+                    pd.DataFrame(
+                        bf.data(
+                            fromstring(page.content))).loc[
+                        'vote-metadata', 'rollcall-vote']).loc[0, 'action-date.$'])
+
+            master_house_votes = master_house_votes.append(df)
+
+        ## Add roll_id
+        master_house_votes['roll_id'] = (master_house_votes['congress'].astype(str) + 
+        	master_house_votes['session'].astype(str) + 
+        	master_house_votes['roll'].astype(str)).astype(int)
+
+        ## Sanitize names
+        master_house_votes['member_full'] = master_house_votes['member_full'].apply(lambda x: unidecode(x))
+        master_house_votes['member_full'] = master_house_votes['member_full'].str.replace("'", "''")
+
+        ## Save to attribute
+        self.house_votes = master_house_votes.reset_index(drop=True)
+
+    def house_votes_into_sql(self):
+    	"""This method takes the house votes collected
+    	and puts them in the database."""
+    	
+        connection = open_connection()
+        cursor = connection.cursor()
+
+        duplicated = 0
+
+        ## Put data into table
+        for i in range(len(self.house_votes)):
+            x = list(self.house_votes.loc[i,])
+
+            for p in [x]:
+                format_str = """INSERT INTO house_votes_tbl (
+                member_full,
+                bioguide_id,
+                party,
+                role,
+                state,
+                vote, 
+                year, 
+                roll,
+                congress,
+                session,
+                date, 
+                roll_id)
+                VALUES ('{member_full}', '{bioguide_id}', '{party}', '{role}',
+                 '{state}', '{vote}', '{year}', '{roll}', '{congress}', 
+                 '{session}', '{date}', '{roll_id}');"""
+
+
+                sql_command = format_str.format(member_full=p[0], bioguide_id=p[1], party=p[2],
+                    role=p[3], state=p[4], vote=p[5], year=p[6],
+                    roll=p[7], congress=p[8], session=p[9], date=p[10], roll_id=p[11])
+
+                try:
+                    cursor.execute(sql_command)
+                    connection.commit()
+                except:
+                    "Duplicate"
+                    duplicated += 1
+                    connection.rollback()
+        connection.close()
+        if duplicated > 0:
+            self.duplicate_entries = 'There were {} duplicaetes... But why?'.format(duplicated)
+
+    def collect_missing_house_votes(self):
+        """
+        This method collects missing house votes
+        by checking the max house votes collected
+        and comparing that to the vote menu table.
+        """
+        print 'Getting house votes'
+
+        ## Get the max date for roll call votes collected
+        house_votes_max = str(pd.read_sql_query("""select max(date) from house_votes_tbl;""", 
+                                            open_connection()).loc[0, 'max'])
+
+        ## Get vote menu where date is greater than
+        ## max roll call votes collcted
+        self.house_vote_menu = pd.read_sql_query("""SELECT * 
+        FROM house_vote_menu 
+        where date > '{}';""".format(house_votes_max), open_connection())
+
+        ## If there are votes to collect try to collect them
+        if len(self.house_vote_menu) > 0:
+            ## Collect missing roll call votes
+            vote_collector.get_congress_votes(self)
+
+            print 'add {} votes'.format(len(self.house_votes))
+            ## Put in databse
+            vote_collector.house_votes_into_sql(self)
+
+
+    def __init__(self, house_vote_menu=None, to_db=None, house_votes=None):
         self.house_vote_menu = house_vote_menu
         self.to_db = to_db
+        self.house_votes = house_votes
+        self.duplicate_entries = "No duplicate vote entries."
 
 class committee_collector(object):
     """
@@ -690,9 +827,9 @@ class committee_collector(object):
         cursor.execute(sql_command)
         connection.commit()
 
+        print 'Inserting {} into house_membership'.format(len(df))
         ## Put each row into sql
         for i in range(len(df)):
-            print i
             x = list(df.loc[i,])
 
             for p in [x]:
