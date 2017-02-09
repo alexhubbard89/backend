@@ -14,8 +14,8 @@ import re
 import time
 
 
-urlparse.uses_netloc.append("postgres")
-url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
+# urlparse.uses_netloc.append("postgres")
+# url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
     
 def open_connection():
     connection = psycopg2.connect(
