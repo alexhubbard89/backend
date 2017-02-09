@@ -13,7 +13,6 @@ import logging
 import imp
 tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
 
-
 app = Flask(__name__)
 CORS(app)
 app.config.from_object(__name__)
