@@ -10,6 +10,8 @@ import us
 from xmljson import badgerfish as bf
 from xml.etree.ElementTree import fromstring
 from pandas.io.json import json_normalize
+import os
+import sys
 
 urlparse.uses_netloc.append("postgres")
 url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
@@ -135,7 +137,7 @@ unique_urls = np.unique(vote_menu.loc[:, 'issue_link'])
 master_sponsor = pd.DataFrame()
 
 print 'collect data'
-for i in range(0, 50):
+for i in range(0, len(unique_urls)):
     if unique_urls[i] != ' ':
         url = unique_urls[i]
         print url
