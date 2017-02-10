@@ -841,3 +841,192 @@ class committee_collector(object):
         self.committee_links = committee_links
         self.subcommittee_links = subcommittee_links
         self.committee_membership = committee_membership
+
+class sponsorship_collection(object):
+    """
+    This class is used to collect sponsorship
+    information for all bills in the house and
+    senate. The collector will search for all
+    legislation drafted this year (which is held
+    in the database). It will then search all of
+    that legislation on congress.gov to get the
+    sponsor and cosponsor data. Finially, it will
+    insert new data and update older data.
+    
+    The reason that I am collecting for the whole
+    year and collecting old data is because new 
+    cosponsors can join a bill at later data, and
+    some cosponsors decided they no longer wish
+    to cospons.
+    
+    Attributes:
+    Sponsorship data - The information to put in the db
+    New data - How many new data points were added
+    Updated data - How many data poins were updated
+    """
+    
+    def get_sponsor_data(self):
+        """
+        This method is used to collect
+        the sponsorship and cosponsorhip
+        from a given URL. If no sponsorship
+        and or cosponsorship exists then
+        return None.
+        """
+        
+        ## Create url path
+        r = requests.get('{}/cosponsors'.format(self.search_url))
+        page = BeautifulSoup(r.content, "lxml")
+        try:
+            sponsor = page.find_all('div', 
+                                     class_=
+                                     'overview_wrapper bill')[0].find_all(
+                'tr')[0].find_all('a')[0].get('href').split('/')[-1]
+            sponsors_df = pd.DataFrame([self.search_url, sponsor]).transpose()
+            sponsors_df.columns = ['url', 'bioguide_id']
+
+            try:
+                ## If there are cosponsors
+                cosponsors_id = []
+                cosponsors_name = []
+                cosponsors_date = []
+
+                loop_max = len(page.find_all('div', class_='col2_lg basic-search-results nav-on')[0].find_all('td', class_='date'))
+                date_split = page.find_all('div', class_='col2_lg basic-search-results nav-on')[0]
+
+                for i in range(1, loop_max):
+                    cosponsors_id.append(str(date_split.find_all('a', target='_blank')[i].get('href').split('/')[-1]))
+                    cosponsors_name.append(str(str(date_split.find_all('a', target='_blank')[i].text)))
+                    cosponsors_date.append(str(date_split.find_all('td', class_='date')[i].text))
+            except:
+                "either nothing or something weird"
+
+            try:
+                cosponsor_df = pd.DataFrame([cosponsors_id, cosponsors_name, cosponsors_date]).transpose()
+                cosponsor_df.columns = ['bioguide_id', 'member_full', 'date_cosponsored']
+
+                sponsors_df.loc[:, 'cosponsor_bioguide_id'] = pd.Series(list(cosponsor_df['bioguide_id']))
+                sponsors_df.set_value(0, 'cosponsor_bioguide_id', (list(cosponsor_df['bioguide_id'])))
+
+                sponsors_df.loc[:, 'cosponsor_member_full'] = pd.Series(list(cosponsor_df['member_full']))
+                sponsors_df.set_value(0, 'cosponsor_member_full', (list(cosponsor_df['member_full'])))
+
+                sponsors_df.loc[:, 'date_cosponsored'] = pd.Series(list(cosponsor_df['date_cosponsored']))
+                sponsors_df.set_value(0, 'date_cosponsored', (list(cosponsor_df['date_cosponsored'])))
+
+                ## Remove single quotes.
+                ## I tried in single data collection but they still showed up
+                sponsors_df.loc[:, 'cosponsor_bioguide_id'] = sponsors_df.loc[:, 'cosponsor_bioguide_id'].apply(lambda x: str(x).replace("'", ""))
+                sponsors_df.loc[:, 'cosponsor_member_full'] = sponsors_df.loc[:, 'cosponsor_member_full'].apply(lambda x: str(x).replace("'", ""))
+                sponsors_df.loc[:, 'date_cosponsored'] = sponsors_df.loc[:, 'date_cosponsored'].apply(lambda x: str(x).replace("'", ""))
+            except:
+                ## No cosponsors
+                sponsors_df.loc[0, 'cosponsor_bioguide_id'] = None
+                sponsors_df.loc[0, 'cosponsor_member_full'] = None
+                sponsors_df.loc[0, 'date_cosponsored'] = None
+        except:
+            """There was no sponsor. 
+            Rare but not impossible."""
+            sponsor = None
+            sponsors_df = pd.DataFrame([self.search_url, sponsor]).transpose()
+            sponsors_df.columns = ['url', 'bioguide_id']
+            sponsors_df.loc[0, 'cosponsor_bioguide_id'] = None
+            sponsors_df.loc[0, 'cosponsor_member_full'] = None
+            sponsors_df.loc[0, 'date_cosponsored'] = None
+
+        return sponsors_df
+    
+    def sponsor_to_sql(self):
+        """
+        This is used to put the collected
+        sponsorship data into the database.
+        I am collecting metrics on what was
+        new and what was updated for emails
+        reports.
+        """
+        
+        connection = open_connection()
+        cursor = connection.cursor()
+        new_data = 0
+        updated_data = 0
+
+
+        ## Put each row into sql
+        for i in range(len(self.master_sponsors)):
+            x = list(self.master_sponsors.loc[i,])
+
+            for p in [x]:
+                format_str = """
+                INSERT INTO bill_sponsors (
+                url, 
+                bioguide_id, 
+                cosponsor_bioguide_id,
+                cosponsor_member_full,
+                date_cosponsored)
+                VALUES ('{url}', '{bioguide_id}', '{cosponsor_bioguide_id}',
+                        '{cosponsor_member_full}', '{date_cosponsored}');"""
+
+
+            sql_command = format_str.format(url=p[0], bioguide_id=p[1], cosponsor_bioguide_id=p[2],
+                                           cosponsor_member_full=p[3], date_cosponsored=p[4])
+            # Commit to sql
+            try:
+                cursor.execute(sql_command)
+                connection.commit()
+                new_data += 1
+            except:
+                ## Update what I got
+                connection.rollback()
+                sql_command = """UPDATE bill_sponsors 
+                SET
+                bioguide_id = '{}',
+                cosponsor_bioguide_id = '{}',
+                cosponsor_member_full = '{}',
+                date_cosponsored = '{}'
+                WHERE url = '{}';""".format(
+                self.master_sponsors.loc[i, 'bioguide_id'],
+                self.master_sponsors.loc[i, 'cosponsor_bioguide_id'],
+                self.master_sponsors.loc[i, 'cosponsor_member_full'],
+                self.master_sponsors.loc[i, 'date_cosponsored'],
+                self.master_sponsors.loc[i, 'url'])    
+                cursor.execute(sql_command)
+                connection.commit()
+                updated_data += 1
+
+        connection.close()
+        self.new_data = new_data
+        self.updated_data = updated_data
+        
+    def collect_sponsorship(self):
+        """
+        This method will be used to collected
+        the sponsorship of each bill. Since I don't
+        know how far along a bill is without going to
+        the congress.gov page, I'm just going to
+        recollect for now.
+        """
+
+        ## Get current year's vote menu
+        current_year = str(datetime.date.today().year)
+        sql_query = """SELECT * 
+        FROM house_vote_menu 
+        WHERE date >= '{}-01-01'""".format(current_year)
+
+        house_menu = pd.read_sql_query(sql_query, open_connection())
+        unique_menu = np.unique(house_menu.loc[house_menu['issue_link'] != ' ', 'issue_link'])
+
+        print 'Collect sponsorship data :P'
+        master_sponsors = pd.DataFrame()
+        for url in unique_menu:
+            self.search_url = url
+            master_sponsors = master_sponsors.append(sponsorship_collection.get_sponsor_data(self))
+        
+        self.master_sponsors = master_sponsors.reset_index(drop=True)
+        print 'To the database!'
+        sponsorship_collection.sponsor_to_sql(self)
+        
+    def __init__(self, search_url=None, master_sponsors=None, new_data=None, updated_data=None):
+        self.search_url = search_url
+        self.master_sponsors = master_sponsors
+        self.new_data = new_data
+        self.updated_data = updated_data

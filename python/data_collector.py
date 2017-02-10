@@ -6,7 +6,7 @@ import imp
 collect_current_congress = imp.load_source('module', './python/collect_current_congress.py')
 tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
 
-### For testing
+# ## For testing
 # collect_current_congress = imp.load_source('module', 'collect_current_congress.py')
 # tally_toolkit = imp.load_source('module', 'tally_toolkit.py')
 
@@ -40,16 +40,26 @@ try:
 except:
     bad_collection += """\n\tHouse votes collector"""
 
+# try:
+# 	print 'collect committee data'
+# 	committee_data = tally_toolkit.committee_collector()
+# 	tally_toolkit.committee_collector.get_committees(committee_data)
+# 	tally_toolkit.committee_collector.get_subcommittees(committee_data)
+# 	tally_toolkit.committee_collector.get_all_membership(committee_data)
+# 	tally_toolkit.committee_collector.membership_to_sql(committee_data)
+# 	good_collection += """\n\tHouse committee membership"""
+# except:
+# 	bad_collection += """\n\tHouse committee membership"""
+
 try:
-	print 'collect committee data'
-	committee_data = tally_toolkit.committee_collector()
-	tally_toolkit.committee_collector.get_committees(committee_data)
-	tally_toolkit.committee_collector.get_subcommittees(committee_data)
-	tally_toolkit.committee_collector.get_all_membership(committee_data)
-	tally_toolkit.committee_collector.membership_to_sql(committee_data)
-	good_collection += """\n\tHouse committee membership"""
+    sponsorship_data = tally_toolkit.sponsorship_collection()
+    tally_toolkit.sponsorship_collection.collect_sponsorship(sponsorship_data)
+    sponsorship_data.new_data
+    sponsorship_data.updated_data
+    good_collection += """\n\tSponsorship collected - New data: {}, Update data: {}""".format(sponsorship_data.new_data,
+        sponsorship_data.updated_data)
 except:
-	bad_collection += """\n\tHouse committee membership"""
+    bad_collection += """\n\ttSponsorship collector"""
 
 msg['Subject'] = "Data Collection Report"
 body_msg = """Data Collection Report
