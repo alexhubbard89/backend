@@ -40,16 +40,16 @@ try:
 except:
     bad_collection += """\n\tHouse votes collector"""
 
-# try:
-# 	print 'collect committee data'
-# 	committee_data = tally_toolkit.committee_collector()
-# 	tally_toolkit.committee_collector.get_committees(committee_data)
-# 	tally_toolkit.committee_collector.get_subcommittees(committee_data)
-# 	tally_toolkit.committee_collector.get_all_membership(committee_data)
-# 	tally_toolkit.committee_collector.membership_to_sql(committee_data)
-# 	good_collection += """\n\tHouse committee membership"""
-# except:
-# 	bad_collection += """\n\tHouse committee membership"""
+try:
+	print 'collect committee data'
+	committee_data = tally_toolkit.committee_collector()
+	tally_toolkit.committee_collector.get_committees(committee_data)
+	tally_toolkit.committee_collector.get_subcommittees(committee_data)
+	tally_toolkit.committee_collector.get_all_membership(committee_data)
+	tally_toolkit.committee_collector.membership_to_sql(committee_data)
+	good_collection += """\n\tHouse committee membership"""
+except:
+	bad_collection += """\n\tHouse committee membership"""
 
 try:
     sponsorship_data = tally_toolkit.sponsorship_collection()
