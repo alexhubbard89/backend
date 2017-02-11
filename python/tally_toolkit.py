@@ -17,8 +17,8 @@ import re
 import us
 from unidecode import unidecode
     
-# urlparse.uses_netloc.append("postgres")
-# url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
+urlparse.uses_netloc.append("postgres")
+url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
     
 def open_connection():
     connection = psycopg2.connect(
@@ -378,7 +378,6 @@ class vote_collector(object):
                 connection.commit()
             except:
                 connection.rollback()
-                print 'duplicate'
         connection.close()
         
     def daily_house_menu(self):
@@ -549,6 +548,9 @@ class committee_collector(object):
     and whose apart of both of them.
     
     Attributes:
+    committee_links - All different committees
+    subcommittee_links - All different subcommittees
+    committee_membership - Whose in what
     
     """
     
@@ -841,3 +843,343 @@ class committee_collector(object):
         self.committee_links = committee_links
         self.subcommittee_links = subcommittee_links
         self.committee_membership = committee_membership
+
+class sponsorship_collection(object):
+    """
+    This class is used to collect sponsorship
+    information for all bills in the house and
+    senate. The collector will search for all
+    legislation drafted this year (which is held
+    in the database). It will then search all of
+    that legislation on congress.gov to get the
+    sponsor and cosponsor data. Finially, it will
+    insert new data and update older data.
+    
+    The reason that I am collecting for the whole
+    year and collecting old data is because new 
+    cosponsors can join a bill at later data, and
+    some cosponsors decided they no longer wish
+    to cospons.
+    
+    Attributes:
+    Sponsorship data - The information to put in the db
+    New data - How many new data points were added
+    Updated data - How many data poins were updated
+    """
+    
+    def get_sponsor_data(self):
+        """
+        This method is used to collect
+        the sponsorship and cosponsorhip
+        from a given URL. If no sponsorship
+        and or cosponsorship exists then
+        return None.
+        """
+        
+        ## Create url path
+        r = requests.get('{}/cosponsors'.format(self.search_url))
+        page = BeautifulSoup(r.content, "lxml")
+        try:
+            tr_page = page.find('div', class_='overview_wrapper bill').find_all('tr')
+            for i in range(len(tr_page)):
+                if 'Sponsor:' in tr_page[i].text:
+                    sponsor = tr_page[i].find('a').get('href').split('/')[-1]
+            sponsors_df = pd.DataFrame([self.search_url, sponsor]).transpose()
+            sponsors_df.columns = ['url', 'bioguide_id']
+
+            try:
+                ## If there are cosponsors
+                cosponsors_id = []
+                cosponsors_name = []
+                cosponsors_date = []
+
+                loop_max = len(page.find_all('div', class_='col2_lg basic-search-results nav-on')[0].find_all('td', class_='date'))
+                date_split = page.find_all('div', class_='col2_lg basic-search-results nav-on')[0]
+
+                for i in range(1, loop_max):
+                    cosponsors_id.append(str(date_split.find_all('a', target='_blank')[i].get('href').split('/')[-1]))
+                    cosponsors_name.append(str(str(date_split.find_all('a', target='_blank')[i].text)))
+                    cosponsors_date.append(str(date_split.find_all('td', class_='date')[i].text))
+            except:
+                "either nothing or something weird"
+
+            try:
+                cosponsor_df = pd.DataFrame([cosponsors_id, cosponsors_name, cosponsors_date]).transpose()
+                cosponsor_df.columns = ['bioguide_id', 'member_full', 'date_cosponsored']
+
+                sponsors_df.loc[:, 'cosponsor_bioguide_id'] = pd.Series(list(cosponsor_df['bioguide_id']))
+                sponsors_df.set_value(0, 'cosponsor_bioguide_id', (list(cosponsor_df['bioguide_id'])))
+
+                sponsors_df.loc[:, 'cosponsor_member_full'] = pd.Series(list(cosponsor_df['member_full']))
+                sponsors_df.set_value(0, 'cosponsor_member_full', (list(cosponsor_df['member_full'])))
+
+                sponsors_df.loc[:, 'date_cosponsored'] = pd.Series(list(cosponsor_df['date_cosponsored']))
+                sponsors_df.set_value(0, 'date_cosponsored', (list(cosponsor_df['date_cosponsored'])))
+
+                ## Remove single quotes.
+                ## I tried in single data collection but they still showed up
+                sponsors_df.loc[:, 'cosponsor_bioguide_id'] = sponsors_df.loc[:, 'cosponsor_bioguide_id'].apply(lambda x: str(x).replace("'", ""))
+                sponsors_df.loc[:, 'cosponsor_member_full'] = sponsors_df.loc[:, 'cosponsor_member_full'].apply(lambda x: str(x).replace("'", ""))
+                sponsors_df.loc[:, 'date_cosponsored'] = sponsors_df.loc[:, 'date_cosponsored'].apply(lambda x: str(x).replace("'", ""))
+            except:
+                ## No cosponsors
+                sponsors_df.loc[0, 'cosponsor_bioguide_id'] = None
+                sponsors_df.loc[0, 'cosponsor_member_full'] = None
+                sponsors_df.loc[0, 'date_cosponsored'] = None
+        except:
+            """There was no sponsor. 
+            Rare but not impossible."""
+            sponsor = None
+            sponsors_df = pd.DataFrame([self.search_url, sponsor]).transpose()
+            sponsors_df.columns = ['url', 'bioguide_id']
+            sponsors_df.loc[0, 'cosponsor_bioguide_id'] = None
+            sponsors_df.loc[0, 'cosponsor_member_full'] = None
+            sponsors_df.loc[0, 'date_cosponsored'] = None
+
+        return sponsors_df
+    
+    def sponsor_to_sql(self):
+        """
+        This is used to put the collected
+        sponsorship data into the database.
+        I am collecting metrics on what was
+        new and what was updated for emails
+        reports.
+        """
+        
+        connection = open_connection()
+        cursor = connection.cursor()
+        new_data = 0
+        updated_data = 0
+
+
+        ## Put each row into sql
+        for i in range(len(self.master_sponsors)):
+            x = list(self.master_sponsors.loc[i,])
+
+            for p in [x]:
+                format_str = """
+                INSERT INTO bill_sponsors (
+                url, 
+                bioguide_id, 
+                cosponsor_bioguide_id,
+                cosponsor_member_full,
+                date_cosponsored)
+                VALUES ('{url}', '{bioguide_id}', '{cosponsor_bioguide_id}',
+                        '{cosponsor_member_full}', '{date_cosponsored}');"""
+
+
+            sql_command = format_str.format(url=p[0], bioguide_id=p[1], cosponsor_bioguide_id=p[2],
+                                           cosponsor_member_full=p[3], date_cosponsored=p[4])
+            # Commit to sql
+            try:
+                cursor.execute(sql_command)
+                connection.commit()
+                new_data += 1
+            except:
+                ## Update what I got
+                connection.rollback()
+                sql_command = """UPDATE bill_sponsors 
+                SET
+                bioguide_id = '{}',
+                cosponsor_bioguide_id = '{}',
+                cosponsor_member_full = '{}',
+                date_cosponsored = '{}'
+                WHERE url = '{}';""".format(
+                self.master_sponsors.loc[i, 'bioguide_id'],
+                self.master_sponsors.loc[i, 'cosponsor_bioguide_id'],
+                self.master_sponsors.loc[i, 'cosponsor_member_full'],
+                self.master_sponsors.loc[i, 'date_cosponsored'],
+                self.master_sponsors.loc[i, 'url'])    
+                cursor.execute(sql_command)
+                connection.commit()
+                updated_data += 1
+
+        connection.close()
+        self.new_data = new_data
+        self.updated_data = updated_data
+        
+    def collect_sponsorship(self):
+        """
+        This method will be used to collected
+        the sponsorship of each bill. Since I don't
+        know how far along a bill is without going to
+        the congress.gov page, I'm just going to
+        recollect for now.
+        """
+
+        ## Get current year's vote menu
+        # current_year = str(datetime.date.today().year)
+        # sql_query = """SELECT * 
+        # FROM house_vote_menu 
+        # WHERE date >= '{}-01-01'""".format(current_year)
+
+        sql_query = """SELECT * 
+        FROM all_legislation 
+        WHERE congress = '{}'""".format(self.congress_search)
+
+        all_legislation = pd.read_sql_query(sql_query, open_connection())
+        unique_legislation = np.unique(all_legislation.loc[all_legislation['issue_link'] != ' ', 'issue_link'])
+
+        print 'Collect sponsorship data :P'
+        master_sponsors = pd.DataFrame()
+        for url in unique_legislation:
+            self.search_url = url
+            master_sponsors = master_sponsors.append(sponsorship_collection.get_sponsor_data(self))
+        
+        self.master_sponsors = master_sponsors.reset_index(drop=True)
+        print 'To the database!'
+        sponsorship_collection.sponsor_to_sql(self)
+        
+    def __init__(self, search_url=None, master_sponsors=None, new_data=None, updated_data=None,
+        congress_search=None):
+        self.search_url = search_url
+        self.master_sponsors = master_sponsors
+        self.new_data = new_data
+        self.updated_data = updated_data
+        self.congress_search = congress_search
+
+class collect_legislation(object):
+    """
+    This class will be used to collect legislation
+    for the congress. The primary purpose will be 
+    to collect and hosue.
+    
+    Attributes:
+    legislation_by_congress - The legislation collected
+    congress_search - The congression I want to find legislation for
+    new_data - New data put into db
+    updated_data - Number of data updated in db
+    """
+    
+    
+    def legislation_info_by_congress(self):
+    
+        ## Master dasta set to save to
+        master_df = pd.DataFrame()
+
+        url = 'https://www.congress.gov/search?q=%7B"congress":"{}","source":"legislation"%7D&searchResultViewType=expanded&pageSize=250&page=1'.format(self.congress_search)
+        print url
+        r = requests.get(url)
+        page = BeautifulSoup(r.content, 'lxml')
+
+        max_page = int(page.find('div', 
+              class_='nav-pag-top').find(
+        'div', class_='pagination').find_all(
+        'a')[-1].get('href').split('page=')[1])
+
+        for i in range(1, max_page+1):
+            page_df = pd.DataFrame()
+            if i != 1:
+                ## Request next page
+                url = 'https://www.congress.gov/search?q=%7B"congress":"{}","source":"legislation"%7D&searchResultViewType=expanded&pageSize=250&page={}'.format(self.congress_search, i) 
+                print url
+                r = requests.get(url)
+                page = BeautifulSoup(r.content, 'lxml')
+
+            ## Get legislation container
+            page_list = page.find_all('ol', class_='basic-search-results-lists expanded-view')[0]
+
+            ## Get list of legislation
+            page_list_expanded = page_list.find_all('li', class_='expanded')
+
+            for j in range(len(page_list_expanded)):
+                page_df.loc[j, 'issue_link'] = page_list_expanded[j].find_all(
+                    'span', class_='result-heading')[0].find('a').get('href').split('?')[0]
+
+                page_df.loc[j, 'issue'] = str(page_list_expanded[j].find_all(
+                    'span', class_='result-heading')[0].find('a').text)
+
+                try:
+                    page_df.loc[j, 'title_description'] = unidecode(page_list_expanded[j].find_all(
+                        'span', class_='result-title')[0].text).replace("'", "''")
+                except:
+                    page_df.loc[j, 'title_description'] = None
+
+                try:
+                    if 'Committees:' in page_list_expanded[j].find_all(
+                        'span', class_='result-item')[1].text: 
+
+                        committee_stuff = page_list_expanded[j].find_all(
+                            'span', class_='result-item')[1].text.strip('\nCommittees:')
+                        page_df.loc[j, 'committees'] = unidecode(committee_stuff.strip()).replace("'", "''")
+                    else: 
+                        page_df.loc[j, 'committees'] = None
+                except:
+                    page_df.loc[j, 'committees'] = None
+
+                try:
+                    page_df.loc[j, 'tracker'] = str(page_list_expanded[j].find_all(
+                        'span', class_='result-item')[3].find(
+                        'li', class_='selected').text.split('Array')[0])
+                except:
+                    page_df.loc[j, 'tracker'] = None
+            master_df = master_df.append(page_df)
+        master_df = master_df.reset_index(drop=True)
+        master_df.loc[:, 'congress'] = self.congress_search
+        self.legislation_by_congress = master_df
+        
+    def legislation_to_sql(self):
+        connection = open_connection()
+        cursor = connection.cursor()
+        
+        new_data = 0
+        updated_data = 0
+
+        ## Put each row into sql
+        for i in range(len(self.legislation_by_congress)):
+            x = list(self.legislation_by_congress.loc[i,])
+
+            for p in [x]:
+                format_str = """
+                INSERT INTO all_legislation (
+                issue_link, 
+                issue, 
+                title_description,
+                committees,
+                tracker,
+                congress)
+                VALUES ('{issue_link}', '{issue}', '{title_description}',
+                        '{committees}', '{tracker}', '{congress}');"""
+
+
+            sql_command = format_str.format(issue_link=p[0], issue=p[1], title_description=p[2],
+                                           committees=p[3], tracker=p[4], congress=p[5])
+            ## Commit to sql
+            try:
+                cursor.execute(sql_command)
+                connection.commit()
+                new_data += 1
+            except:
+                print 'duplicate'
+                ## Update what I got
+                connection.rollback()
+                sql_command = """UPDATE all_legislation 
+                SET
+                issue = '{}',
+                title_description = '{}',
+                committees = '{}',
+                tracker = '{}'
+                WHERE (issue_link = '{}'
+                and congress = '{}');""".format(
+                self.legislation_by_congress.loc[i, 'issue'],
+                self.legislation_by_congress.loc[i, 'title_description'],
+                self.legislation_by_congress.loc[i, 'committees'],
+                self.legislation_by_congress.loc[i, 'tracker'],
+                self.legislation_by_congress.loc[i, 'issue_link'],
+                self.legislation_by_congress.loc[i, 'congress'])    
+                cursor.execute(sql_command)
+                connection.commit()
+                updated_data += 1
+
+        connection.close()
+        print 'Data put into sql – New: {}, Updated: {}'.format(new_data, updated_data)
+        self.new_data = new_data
+        self.updated_data = updated_data
+        
+    def __init__(self, legislation_by_congress=None, congress_search=None,
+                new_data=None, updated_data=None):
+        self.legislation_by_congress = legislation_by_congress
+        self.congress_search = congress_search
+        self.new_data = new_data
+        self.updated_data = updated_data

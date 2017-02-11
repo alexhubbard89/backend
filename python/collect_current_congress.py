@@ -14,8 +14,8 @@ import re
 import time
 
 
-# urlparse.uses_netloc.append("postgres")
-# url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
+urlparse.uses_netloc.append("postgres")
+url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
     
 def open_connection():
     connection = psycopg2.connect(
@@ -271,40 +271,6 @@ class bio_data_collector(object):
         connection = open_connection()
         cursor = connection.cursor()
 
-        ## delete 
-        # I'm deleting to make sure we have the most
-        # up-to-date reps. The collection is small
-        # so it's not a bottle next to do this.
-        try:
-            cursor.execute("""DROP TABLE congress_bio;""")
-        except:
-            'table did not exist'
-
-
-
-        # Create table
-        sql_command = """
-            CREATE TABLE congress_bio (
-            name varchar(255), 
-            bioguide_id varchar(255),  
-            state varchar(255), 
-            district int, 
-            party varchar(255), 
-            year_elected int, 
-            served_until varchar(255),
-            photo_url varchar(255),
-            congress_url varchar(255),
-            chamber varchar(255),
-            bio_text TEXT,
-            leadership_position varchar(255),
-            website varchar(255),
-            address varchar(255),
-            phone varchar(255),
-            twitter_handle varchar(255),
-            twitter_url varchar(255),
-            facebook varchar(255));"""
-        cursor.execute(sql_command)
-
         ## Put data into table
         for i in range(len(self.overall_df)):
             print i
@@ -358,9 +324,51 @@ class bio_data_collector(object):
                                                 leadership_position=p[11], website=p[12],
                                                 address=p[13], phone=p[14], twitter_handle=p[15],
                                                twitter_url=p[16], facebook=p[17])
-                cursor.execute(sql_command)
+                try:
+                    cursor.execute(sql_command)
+                    connection.commit()
+
+                except:
+                    ## Update what I got
+                    connection.rollback()
+                    sql_command = """UPDATE congress_bio 
+                    SET
+                    district = '{}',
+                    party = '{}',
+                    served_until = '{}',
+                    photo_url = '{}',
+                    congress_url = '{}', 
+                    bio_text = '{}', 
+                    leadership_position = '{}', 
+                    website = '{}', 
+                    address = '{}',
+                    phone = '{}',
+                    twitter_handle = '{}',
+                    twitter_url = '{}',
+                    facebook ='{}'
+                    WHERE (
+                    bioguide_id = '{}' 
+                    and chamber = '{}'
+                    and year_elected = '{}');""".format(
+                    int(self.overall_df.loc[i, 'district']),
+                    self.overall_df.loc[i, 'party'],
+                    self.overall_df.loc[i, 'served_until'],
+                    self.overall_df.loc[i, 'photo_url'],
+                    self.overall_df.loc[i, 'congress_url'],
+                    self.overall_df.loc[i, 'bio_text'],
+                    self.overall_df.loc[i, 'leadership'],
+                    self.overall_df.loc[i, 'website'],
+                    self.overall_df.loc[i, 'address'],
+                    self.overall_df.loc[i, 'phone'],
+                    self.overall_df.loc[i, 'twitter_handle'],
+                    self.overall_df.loc[i, 'twitter_url'],
+                    self.overall_df.loc[i, 'facebook'],
+                    self.overall_df.loc[i, 'bioguide_id'],
+                    self.overall_df.loc[i, 'chamber'],
+                    int(self.overall_df.loc[i, 'year_elected']))    
+                    cursor.execute(sql_command)
+                    connection.commit()
         # never forget this, if you want the changes to be saved:
-        connection.commit()
         connection.close()
 
     ## Should I do more data collection?
@@ -369,11 +377,12 @@ class bio_data_collector(object):
         cursor = connection.cursor()
 
 
-        df_checker = pd.read_sql_query("""select * from congress_bio where served_until = 'Present'""", connection)
+        df_checker = pd.read_sql_query("""SELECT * FROM congress_bio WHERE served_until = 'Present'""", connection)
         connection.close()
 
         df = self.overall_df.loc[self.overall_df['served_until'] == 'Present'].reset_index(drop=True)
         df.loc[:,'duplicate'] = df.loc[:,'bioguide_id'].apply(lambda x: len(df_checker.loc[df_checker['bioguide_id'].astype(str) == str(x)]) > 0)
+        df.to_csv('/Users/Alexanderhubbard/Downloads/exported_data.csv', index=False, encoding='utf-8')
         if len(df.loc[df['duplicate']==False]) == 0:
             self.collect_all = False
         elif len(df.loc[df['duplicate']==False]) > 0:
@@ -425,49 +434,7 @@ class bio_data_collector(object):
                 print 'I have the most up to date data!'
                 return 'No New Data was collected'
             elif self.collect_all == True:
-                ## Collect all data
-                print 'collect house'
-                ## First house reps
-                master_house_reps = pd.DataFrame()
-                for i in range(101,self.current_congress+1):
-                    print i
-                    bio_data_collector.get_congress_by_gov(self, congress_num=i, chamber='house')
-                    print self.status_code
-                    if self.status_code == 403:
-                        scraper_counter = 0
-                        while self.status_code == 403:
-                            if scraper_counter == 10:
-                                missing_years += "403 Forbidden HTTP for congress {}".format(i)
-                                status_code = 200
-                            elif scraper_counter < 10:
-                                bio_data_collector.get_congress_by_gov(self, congress_num=i, chamber='house')
-                                print self.status_code
-                    ## Now append the data
-                    master_house_reps = master_house_reps.append(self.house_df)
-                master_house_reps = master_house_reps.sort_values(['state', 'district']).drop_duplicates().reset_index(drop=True)
-
-                print 'collect senate'
-                master_senators = pd.DataFrame()
-                for i in range(101,self.current_congress+1):
-                    print i
-                    bio_data_collector.get_congress_by_gov(self, congress_num=i, chamber='senate')
-                    print self.status_code
-                    if self.status_code == 403:
-                        scraper_counter = 0
-                        while self.status_code == 403:
-                            if scraper_counter == 10:
-                                missing_years += "403 Forbidden HTTP for congress {}".format(i)
-                                status_code = 200
-                            elif scraper_counter < 10:
-                                bio_data_collector.get_congress_by_gov(self, congress_num=i, chamber='senate')
-                                print self.status_code
-                    ## Now append the data
-                    master_senators = master_senators.append(self.senate_df)
-                master_senators = master_senators.sort_values(['state', 'district']).drop_duplicates().reset_index(drop=True)
-
-                ## Put the dataframes together
-                self.overall_df = master_house_reps.append(master_senators).reset_index(drop=True)
-
+                ## If it's not up to date then collect data to replace current congress
                 print 'getting data 2: Bio text'
                 scraper_counter = 0
                 try_scrape = True
@@ -528,9 +495,10 @@ class bio_data_collector(object):
                                  'chamber', 'bio_text', 'leadership', 'website', 'address',
                                  'phone', 'twitter_handle', 'twitter_url', 'facebook']
                 for column in clean_columns:
-                    self.overall_df[self.overall_df[column].isnull()] = None
+                    self.overall_df.loc[self.overall_df[column].isnull(), column] = None
 
                 ## District should be an int
+                self.overall_df.loc[self.overall_df['district'].isnull(), 'district'] = 100
                 self.overall_df.loc[:, 'district'] = self.overall_df.loc[:, 'district'].astype(int)
 
                 print 'put into sql'
