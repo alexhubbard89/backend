@@ -6,7 +6,7 @@ import imp
 collect_current_congress = imp.load_source('module', './python/collect_current_congress.py')
 tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
 
-# ## For testing
+## For testing
 # collect_current_congress = imp.load_source('module', 'collect_current_congress.py')
 # tally_toolkit = imp.load_source('module', 'tally_toolkit.py')
 
@@ -19,9 +19,9 @@ msg['To'] = "alexhubbard89@gmail.com"
 good_collection = ''
 bad_collection = ''
 try:
-	congress_data = collect_current_congress.bio_data_collector()
-	to_collect_or_not_collect = collect_current_congress.bio_data_collector.collect_current_congress(congress_data)
-	good_collection += """\n\tCurrent Congress: {}""".format(to_collect_or_not_collect)
+    congress_data = collect_current_congress.bio_data_collector()
+    to_collect_or_not_collect = collect_current_congress.bio_data_collector.collect_current_congress(congress_data)
+    good_collection += """\n\tCurrent Congress: {}""".format(to_collect_or_not_collect)
 
 except:
     bad_collection += """\n\tCurrent Congress"""
@@ -51,8 +51,28 @@ try:
 except:
 	bad_collection += """\n\tHouse committee membership"""
 
+print 'collect all legislation from this congress'
+"""This is different from vote menu data. VM data is only roll call
+votes. This method collects all legislations from the current congress.
+This is necessary for scoring.
+congress_data.current_congress was found when I got current congress
+data. The attribute still exists so use it.
+"""
+try:
+    leg_collection = tally_toolkit.collect_legislation()
+    leg_collection.congress_search = congress_data.current_congress
+    tally_toolkit.collect_legislation.legislation_info_by_congress(leg_collection)
+    tally_toolkit.collect_legislation.legislation_to_sql(leg_collection)
+    good_collection += """\n\tLegislation collected for {} congress - New data: {}, Update data: {}""".format(
+        leg_collection.congress_search,
+        leg_collection.new_data,
+        leg_collection.updated_data)
+except:
+    bad_collection += """\n\tLegislation collector"""
+
 try:
     sponsorship_data = tally_toolkit.sponsorship_collection()
+    sponsorship_data.congress_search = congress_data.current_congress
     tally_toolkit.sponsorship_collection.collect_sponsorship(sponsorship_data)
     sponsorship_data.new_data
     sponsorship_data.updated_data
