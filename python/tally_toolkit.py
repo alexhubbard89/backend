@@ -1173,7 +1173,7 @@ class collect_legislation(object):
                 updated_data += 1
 
         connection.close()
-        print 'Data put into sql – New: {}, Updated: {}'.format(new_data, updated_data)
+        print 'Data put into sql - New: {}, Updated: {}'.format(new_data, updated_data)
         self.new_data = new_data
         self.updated_data = updated_data
         
