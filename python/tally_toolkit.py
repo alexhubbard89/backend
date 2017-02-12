@@ -199,12 +199,21 @@ class user_info(object):
             ## Drop uneeded info
             user_results = user_results[['user_id', 'city', 'state_short', 'state_long', 'first_name', 'last_name', 'district']]
             
-            ## Add reps membership data to reps data
+            ## Add reps membership data to reps data.
             ## For each house rep locate their membership and add it 
             ## to the user_reps data set.
             indices = user_reps.loc[user_reps['chamber'] == 'house'].index
             for i in range(len(indices)):
                 sql_query = "SELECT * FROM house_membership WHERE bioguide_id = '{}';".format(user_reps.loc[indices[i], 'bioguide_id'])
+                reps_membership = pd.read_sql_query(sql_query, open_connection())
+                user_reps.loc[indices[i], 'reps_membership'] = [reps_membership.transpose().to_dict()]
+
+            ## Add reps membership data to reps data.
+            ## For each senator locate their membership and add it 
+            ## to the user_reps data set.
+            indices = user_reps.loc[user_reps['chamber'] == 'senate'].index
+            for i in range(len(indices)):
+                sql_query = "SELECT * FROM senate_membership WHERE bioguide_id = '{}';".format(user_reps.loc[indices[i], 'bioguide_id'])
                 reps_membership = pd.read_sql_query(sql_query, open_connection())
                 user_reps.loc[indices[i], 'reps_membership'] = [reps_membership.transpose().to_dict()]
 
