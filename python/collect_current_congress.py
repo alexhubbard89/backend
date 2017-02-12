@@ -382,7 +382,6 @@ class bio_data_collector(object):
 
         df = self.overall_df.loc[self.overall_df['served_until'] == 'Present'].reset_index(drop=True)
         df.loc[:,'duplicate'] = df.loc[:,'bioguide_id'].apply(lambda x: len(df_checker.loc[df_checker['bioguide_id'].astype(str) == str(x)]) > 0)
-        df.to_csv('/Users/Alexanderhubbard/Downloads/exported_data.csv', index=False, encoding='utf-8')
         if len(df.loc[df['duplicate']==False]) == 0:
             self.collect_all = False
         elif len(df.loc[df['duplicate']==False]) > 0:
