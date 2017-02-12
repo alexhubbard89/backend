@@ -500,7 +500,6 @@ class vote_collector(object):
                     cursor.execute(sql_command)
                     connection.commit()
                 except:
-                    "Duplicate"
                     duplicated += 1
                     connection.rollback()
         connection.close()
@@ -1008,11 +1007,7 @@ class sponsorship_collection(object):
         recollect for now.
         """
 
-        ## Get current year's vote menu
-        # current_year = str(datetime.date.today().year)
-        # sql_query = """SELECT * 
-        # FROM house_vote_menu 
-        # WHERE date >= '{}-01-01'""".format(current_year)
+        ## Get current congress's legislation
 
         sql_query = """SELECT * 
         FROM all_legislation 
