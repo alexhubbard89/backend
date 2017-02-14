@@ -123,13 +123,13 @@ def committee_membership():
     try:
         data = json.loads(request.data.decode())
         user.chamber = data['chamber']
-        user.bioguide_id = data['bioguide_id']
+        user.bioguide_id_to_search = data['bioguide_id']
     except:
         user.chamber = request.form['chamber']
-        user.bioguide_id = request.form['bioguide_id']
+        user.bioguide_id_to_search = request.form['bioguide_id']
     rep_membership = tally_toolkit.user_info.get_committee_membership(user)
     if len(rep_membership) > 0:
-        return jsonify(rep_membership.to_dict(orient='records'))
+        return jsonify(results=rep_membership.to_dict(orient='records'))
     else:
         return jsonify(results=False)
 

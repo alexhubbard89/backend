@@ -209,7 +209,6 @@ class user_info(object):
 
         Input: bioguide_id
         """
-        print 'getting membership'
         if self.chamber.lower() == 'house': 
             table = 'house_membership'
         elif self.chamber.lower() == 'senate':
