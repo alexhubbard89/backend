@@ -99,7 +99,7 @@ def create_user():
         error = "oops! That user name already exists."
         return jsonify(False)
 
-## Login testing
+## Pass back congress bios
 @app.route("/congress_bio", methods=["POST"])
 def congress_bio():
     user = tally_toolkit.user_info()
@@ -112,9 +112,13 @@ def congress_bio():
         user.state_long = request.form['state_long']
     congress_bio = tally_toolkit.user_info.get_congress_bio(user)
     if len(congress_bio) > 0:
-        return jsonify(congress_bio.to_dict(orient='records')[0])
+        return jsonify(congress_bio.to_dict(orient='records'))
     else:
         return jsonify(False)
+
+## Pass Committee Membership
+@app.route("/committee_membership", methods=["POST"])
+def committee_membership():
 
 
 if __name__ == '__main__':
