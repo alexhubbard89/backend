@@ -112,7 +112,7 @@ def congress_bio():
         user.state_long = request.form['state_long']
     congress_bio = tally_toolkit.user_info.get_congress_bio(user)
     if len(congress_bio) > 0:
-        return jsonify(congress_bio.to_dict(orient='records'))
+        return jsonify(congress_bio.to_dict(orient='records')[:])
     else:
         return jsonify(False)
 
