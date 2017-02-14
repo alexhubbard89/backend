@@ -94,10 +94,10 @@ def create_user():
     user_made = tally_toolkit.user_info.user_info_to_sql(user)
 
     if user_made == True:
-        return jsonify(result=True)
+        return jsonify(True)
     elif user_made == False:
         error = "oops! That user name already exists."
-        return jsonify(result=False)
+        return jsonify(False)
 
 ## Login testing
 @app.route("/congress_bio", methods=["POST"])
@@ -112,9 +112,9 @@ def congress_bio():
         user.state_long = request.form['state_long']
     congress_bio = tally_toolkit.user_info.get_congress_bio(user)
     if len(congress_bio) > 0:
-        return jsonify(results=congress_bio.to_dict(orient='records')[0])
+        return jsonify(congress_bio.to_dict(orient='records')[0])
     else:
-        return False
+        return jsonify(False)
 
 
 if __name__ == '__main__':
