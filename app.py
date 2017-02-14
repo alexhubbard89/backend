@@ -55,7 +55,8 @@ def login():
     if matched_credentials == True:
         user_data = tally_toolkit.user_info.get_user_data(user)
         print user_data
-        return jsonify(results=user_data.to_dict(orient='records'))
+        # return jsonify(user_data.to_dict(orient='records'))
+        return jsonify(user_data.to_dict(orient='records')[0])
     else:
         error = "Wrong user name or password"
         print error
@@ -111,7 +112,7 @@ def congress_bio():
         user.state_long = request.form['state_long']
     congress_bio = tally_toolkit.user_info.get_congress_bio(user)
     if len(congress_bio) > 0:
-        return jsonify(results=congress_bio.to_dict(orient='records'))
+        return jsonify(results=congress_bio.to_dict(orient='records')[0])
     else:
         return False
 
