@@ -171,9 +171,22 @@ class user_info(object):
 
             user_results = pd.read_sql_query(sql_command, connection)
             connection.close()
-            return user_results
+            return user_results[['user_id', 'city', 'state_short', 'state_long', 'first_name', 'last_name', 'district']]
         elif self.password_match == False:
             return "Check credentials frist"
+
+    def get_congress_bio(self):
+        ## Search for user's reps
+        sql_command = """select * 
+        from congress_bio 
+        where state = '{}' 
+        and served_until = 'Present'
+        and ((chamber = 'senate') 
+        or (chamber = 'house' and district = {}));""".format(self.state_long, self.district)
+
+        user_results = pd.read_sql_query(sql_command, open_connection())
+        return user_results
+
         
     def get_user_dashboard_data(self):
         if self.password_match == True:
@@ -247,7 +260,8 @@ class user_info(object):
         return False
     
     def __init__(self, email=None, password=None, password_match=False, first_name=None,
-                last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None):
+                last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None,
+                state_long=None, district=None):
         self.email = email
         self.password = password
         self.password_match = password_match
@@ -258,6 +272,8 @@ class user_info(object):
         self.street = street
         self.zip_code = zip_code
         self.user_df = user_df
+        self.state_long = state_long
+        self.district = district
 
 
 class vote_collector(object):
@@ -1155,7 +1171,6 @@ class collect_legislation(object):
                 connection.commit()
                 new_data += 1
             except:
-                print 'duplicate'
                 ## Update what I got
                 connection.rollback()
                 sql_command = """UPDATE all_legislation 
