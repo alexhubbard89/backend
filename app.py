@@ -114,7 +114,7 @@ def congress_bio():
     if len(congress_bio) > 0:
         return jsonify(results=congress_bio.to_dict(orient='records'))
     else:
-        return jsonify(False)
+        return jsonify(results=False)
 
 ## Pass Committee Membership
 @app.route("/committee_membership", methods=["POST"])
@@ -131,7 +131,7 @@ def committee_membership():
     if len(rep_membership) > 0:
         return jsonify(rep_membership.to_dict(orient='records'))
     else:
-        return jsonify(False)
+        return jsonify(results=False)
 
 
 if __name__ == '__main__':
