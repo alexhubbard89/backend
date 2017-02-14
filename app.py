@@ -53,7 +53,7 @@ def login():
         user.password = request.form['password']
     matched_credentials = tally_toolkit.user_info.search_user(user)
     if matched_credentials == True:
-        user_data = tally_toolkit.user_info.get_user_dashboard_data(user)
+        user_data = tally_toolkit.user_info.get_user_data(user)
         print user_data
         return jsonify(results=user_data.to_dict(orient='records'))
     else:
@@ -97,6 +97,24 @@ def create_user():
     elif user_made == False:
         error = "oops! That user name already exists."
         return jsonify(result=False)
+
+## Login testing
+@app.route("/congress_bio", methods=["POST"])
+def congress_bio():
+    user = tally_toolkit.user_info()
+    try:
+        data = json.loads(request.data.decode())
+        user.district = data['district']
+        user.state_long = data['state_long']
+    except:
+        user.district = request.form['district']
+        user.state_long = request.form['state_long']
+    congress_bio = tally_toolkit.user_info.get_congress_bio(user)
+    if len(congress_bio) > 0:
+        return jsonify(results=congress_bio.to_dict(orient='records'))
+    else:
+        return False
+
 
 if __name__ == '__main__':
     ## app.run is to run with flask
