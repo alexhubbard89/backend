@@ -202,6 +202,22 @@ class user_info(object):
         user_results = pd.read_sql_query(sql_command, open_connection())
         return user_results
 
+    def get_committee_membership(self):
+
+        """
+        This method will grab the committee memership for a rep.
+
+        Input: bioguide_id
+        """
+        print 'getting membership'
+        if self.chamber.lower() == 'house': 
+            table = 'house_membership'
+        elif self.chamber.lower() == 'senate':
+            table = 'senate_membership'
+
+        sql_query = "SELECT * FROM {} WHERE bioguide_id = '{}';".format(table, self.bioguide_id_to_search)
+        reps_membership = pd.read_sql_query(sql_query, open_connection())
+        return reps_membership
         
     def get_user_dashboard_data(self):
         if self.password_match == True:
@@ -276,7 +292,7 @@ class user_info(object):
     
     def __init__(self, email=None, password=None, password_match=False, first_name=None,
                 last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None,
-                state_long=None, district=None):
+                state_long=None, district=None, bioguide_id_to_search=None, chamber=None):
         self.email = email
         self.password = password
         self.password_match = password_match
@@ -289,6 +305,8 @@ class user_info(object):
         self.user_df = user_df
         self.state_long = state_long
         self.district = district
+        self.bioguide_id_to_search = bioguide_id_to_search
+        self.chamber = chamber
 
 
 class vote_collector(object):
