@@ -116,11 +116,11 @@ def congress_bio():
     else:
         return jsonify(False)
 
-## Pass Committee Membership
-@app.route("/committee_membership", methods=["POST"])
-def committee_membership():
-    "just stay here for a minue"
-    x = 0
+# ## Pass Committee Membership
+# @app.route("/committee_membership", methods=["POST"])
+# def committee_membership():
+#     "just stay here for a minue"
+#     x = 0
 
 
 if __name__ == '__main__':
