@@ -116,11 +116,22 @@ def congress_bio():
     else:
         return jsonify(False)
 
-# ## Pass Committee Membership
-# @app.route("/committee_membership", methods=["POST"])
-# def committee_membership():
-#     "just stay here for a minue"
-#     x = 0
+## Pass Committee Membership
+@app.route("/committee_membership", methods=["POST"])
+def committee_membership():
+    user = tally_toolkit.user_info()
+    try:
+        data = json.loads(request.data.decode())
+        user.chamber = data['chamber']
+        user.bioguide_id = data['bioguide_id']
+    except:
+        user.chamber = request.form['chamber']
+        user.bioguide_id = request.form['bioguide_id']
+    rep_membership = tally_toolkit.user_info.get_committee_membership(user)
+    if len(rep_membership) > 0:
+        return jsonify(rep_membership.to_dict(orient='records'))
+    else:
+        return jsonify(False)
 
 
 if __name__ == '__main__':
