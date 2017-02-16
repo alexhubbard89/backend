@@ -144,7 +144,7 @@ def legislation_for_user():
         vote_data.user_id = request.form['user_id']
     tally_toolkit.user_votes.available_votes(vote_data)
     if len(vote_data.leg_for_user) > 0:
-        return jsonify(vote_data.leg_for_user.to_dict(orient='records'))
+        return jsonify(vote_data.leg_for_user.to_dict(orient='records')[0])
     else:
         return jsonify(results=False)
 
