@@ -133,6 +133,37 @@ def committee_membership():
     else:
         return jsonify(results=False)
 
+## Find Legislation for user to vote on
+@app.route("/legislation_for_user", methods=["POST"])
+def legislation_for_user():
+    vote_data = tally_toolkit.user_votes()
+    try:
+        data = json.loads(request.data.decode())
+        vote_data.user_id = data['user_id']
+    except:
+        vote_data.user_id = request.form['user_id']
+    tally_toolkit.user_votes.available_votes(vote_data)
+    if len(vote_data.leg_for_user) > 0:
+        return jsonify(vote_data.leg_for_user.to_dict(orient='records'))
+    else:
+        return jsonify(results=False)
+
+## Put user vote in db
+@app.route("/user_vote", methods=["POST"])
+def user_vote():
+    vote_data = tally_toolkit.user_votes()
+    try:
+        data = json.loads(request.data.decode())
+        vote_data.user_id = data['user_id']
+        vote_data.roll_id = data['roll_id']
+        vote_data.vote = bool(data['vote'])
+    except:
+        vote_data.user_id = request.form['user_id']
+        vote_data.roll_id = request.form['roll_id']
+        vote_data.vote = bool(request.form['vote'])
+    tally_toolkit.user_votes.vote_to_db(vote_data)
+    return jsonify(results=vote_data.insert)
+
 
 if __name__ == '__main__':
     ## app.run is to run with flask

@@ -1234,3 +1234,91 @@ class collect_legislation(object):
         self.congress_search = congress_search
         self.new_data = new_data
         self.updated_data = updated_data
+
+class user_votes(object):
+    """
+    This class will be used to find
+    legislation that a user can vote on
+    and insert user votes to the db.
+    
+    Attributes:
+    user_id - user_id number
+    leg_for_user - what the user will vote on
+    roll_id - what user voted on
+    vote - how they voted
+    insert - if insert was successful
+    """
+    
+    def available_votes(self):
+        """
+        This method will be used to find
+        the legislation that a user can vote on.
+        It will only look for on passge bills
+        that the user has not voted on before.
+
+        Input:
+        user_id - To find what a user has voted on
+
+        REMEMBER THIS!
+        CONGRESS IS HARD CODED FOR NOW. 
+        REMEMBER TO FIX THIS IN THE FUTURE.
+        """
+
+        prev_voted = pd.read_sql_query("""SELECT * 
+        FROM user_votes 
+        where user_id = {}""".format(self.user_id), open_connection())
+
+
+        """Build string to exclude roll_ids
+        that the user has already voted on."""
+        roll_id = ''
+        for i in range(len(prev_voted)):
+            if i > 0:
+                roll_id += ' and roll_id != {}'.format(prev_voted.loc[i, 'roll_id'])
+            if i == 0:
+                roll_id += 'roll_id != {}'.format(prev_voted.loc[i, 'roll_id'])
+
+        
+        """Find anything for a user to vote on."""
+        leg_for_user = pd.read_sql_query("""SELECT * FROM house_vote_menu 
+            where congress = 115 
+            and lower(question) ilike '%' || 'passage' || '%'
+            and ({}) LIMIT 1;""".format(roll_id), open_connection())
+
+        self.leg_for_user = leg_for_user
+        
+    def vote_to_db(self):
+        """
+        This method is used to insert the user's vote
+        on the roll_id to the user_votes table.        
+        """
+        
+        connection = open_connection()
+        cursor = connection.cursor()
+        
+        sql_command = """
+        insert into user_votes (
+        user_id,
+        roll_id,
+        vote) 
+        VALUES ({}, {}, {});""".format(
+        self.user_id,
+        self.roll_id,
+        self.vote)
+        
+        try:
+            cursor.execute(sql_command)
+            connection.commit()
+            self.insert = True
+        except:
+            connection.rollback()
+            self.insert = False
+        connection.close()
+    
+    def __init__(self, user_id=None, leg_for_user=None,
+                roll_id=None, vote=None, insert=None):
+        self.user_id = user_id
+        self.leg_for_user = leg_for_user
+        self.roll_id = roll_id
+        self.vote = vote
+        self.insert = insert
