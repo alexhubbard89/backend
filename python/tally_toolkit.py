@@ -1283,9 +1283,26 @@ class user_votes(object):
         leg_for_user = pd.read_sql_query("""SELECT * FROM house_vote_menu 
             where congress = 115 
             and lower(question) ilike '%' || 'passage' || '%'
-            and ({}) LIMIT 1;""".format(roll_id), open_connection())
+            and ({});""".format(roll_id), open_connection())
+        
+        """Find anything for a user to vote on."""
+        predictive_leg = pd.read_sql_query("""SELECT * FROM predictive_legislation
+            where predict_user_ideology = True 
+            and ({});""".format(roll_id), open_connection())
+        
+        ## Append data sets together
+        leg_for_user = leg_for_user.append(predictive_leg).reset_index(drop=True)
+        
+        ## Randomly select vote
+        search_index = np.random.randint(len(leg_for_user))
+        print search_index
+        leg_for_user = pd.DataFrame(leg_for_user.loc[search_index]).transpose().reset_index(drop=True)
 
-        self.leg_for_user = leg_for_user
+        ## Remove columns that will have nulls from predictive table.
+        ## Eventually add main subject. But not for now
+        self.leg_for_user = leg_for_user.drop(['bill_main_subject',
+                                              'ideolog_to_predict',
+                                              'predict_user_ideology'], 1)
         
     def vote_to_db(self):
         """
