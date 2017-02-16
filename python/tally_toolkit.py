@@ -1295,8 +1295,10 @@ class user_votes(object):
         
         ## Randomly select vote
         search_index = np.random.randint(len(leg_for_user))
-        print search_index
         leg_for_user = pd.DataFrame(leg_for_user.loc[search_index]).transpose().reset_index(drop=True)
+
+        ## Fix Date column
+        leg_for_user['date'] = leg_for_user['date'].astype(str)
 
         ## Remove columns that will have nulls from predictive table.
         ## Eventually add main subject. But not for now
