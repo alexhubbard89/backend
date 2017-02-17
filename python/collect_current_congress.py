@@ -515,6 +515,3 @@ class bio_data_collector(object):
         self.overall_df = overall_df
         self.status_code = status_code
         self.collect_all = False
-
-    
-        

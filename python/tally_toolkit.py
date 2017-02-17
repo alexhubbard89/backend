@@ -1341,3 +1341,142 @@ class user_votes(object):
         self.roll_id = roll_id
         self.vote = vote
         self.insert = insert
+
+class Performance(object):
+    """
+    This class generates the performance
+    metrics for each representative. 
+    It will allow us to calculate number of
+    days they have been at work, number of
+    bills they have voted on, how many bills
+    they have sponsors & cosponsored,
+    and the number of bills they have helped
+    draft that became law.
+    
+    Attributes:
+    
+    """
+    
+    def current_congress_num(self):
+        """
+        This method will be used to find the
+        maximum congresss number. The max
+        congress will be the current congress.
+        """
+        
+        cong_num = pd.read_sql_query("""select max(congress) from house_vote_menu;""",open_connection())
+        self.congress_num = cong_num.loc[0, 'max']
+        
+    def num_days_voted(self):
+        """
+        This method will be used to find the
+        number of days a rep has voted on
+        legislatoin and compare it to the
+        total number of days that roll call
+        voting happened.
+        
+        This metric will be a proxy for 
+        days showing up to work.
+        """
+    
+        days_voted = pd.read_sql_query("""
+        SELECT distinct_votes.bioguide_id, 
+        count(distinct_votes.bioguide_id) as days_at_work
+        FROM (
+        SELECT DISTINCT bioguide_id, date
+        FROM house_votes_tbl
+        where congress = {}
+        AND bioguide_id = '{}')
+        as distinct_votes
+        GROUP BY bioguide_id;
+        """.format(self.congress_num,
+                   self.bioguide_id), open_connection())
+        
+        vote_dates = pd.read_sql_query("""
+        SELECT COUNT(DISTINCT(date)) as total_work_days 
+        FROM house_votes_tbl 
+        WHERE congress = {};
+        """.format(self.congress_num),open_connection())
+        
+        ## Join and get percent
+        days_voted.loc[:, 'total_work_days'] = vote_dates.loc[0, 'total_work_days']
+        days_voted['percent_at_work'] = (days_voted['days_at_work']/
+                                         days_voted['total_work_days'])
+        
+        self.days_voted = days_voted
+        
+        
+    def num_votes(self):
+        """
+        This method will be used to find the
+        total number of times a rep has voted
+        and compare it to the total number
+        of roll call votes for the congress.
+        """
+        
+        rep_votes = pd.read_sql_query("""
+        SELECT COUNT(vote) as rep_votes
+        FROM house_votes_tbl
+        where congress = {}
+        AND bioguide_id = '{}';
+        """.format(self.congress_num,
+                   self.bioguide_id), open_connection())
+        
+        total_votes = pd.read_sql_query("""
+        SELECT COUNT(DISTINCT(roll_id)) total_votes
+        FROM house_votes_tbl
+        where congress = {};
+        """.format(self.congress_num), open_connection())
+        
+        rep_votes_metrics = pd.DataFrame([self.bioguide_id],
+                                        columns=['bioguide_id'])
+        rep_votes_metrics['rep_votes'] = rep_votes.loc[0, 'rep_votes']
+        rep_votes_metrics['total_votes'] = total_votes.loc[0, 'total_votes']
+        rep_votes_metrics['percent_votes'] = (rep_votes_metrics['rep_votes']/
+                                              rep_votes_metrics['total_votes'])
+        
+        self.rep_votes_metrics = rep_votes_metrics
+        
+        
+    def num_sponsor(self):
+        """
+        This method will be used to find the
+        total legislation a rep has sponsored
+        and compare it to the maximum that
+        all reps have sponsored for this congress.
+        """
+        
+        rep_sponsor = pd.read_sql_query("""
+        SELECT url, bioguide_id 
+        FROM bill_sponsors 
+        WHERE bioguide_id = '{}'
+        AND url ilike '%' || '{}' || '%';""".format(
+                self.bioguide_id,
+                self.congress_num), open_connection())
+        
+        max_sponsor = pd.read_sql_query("""
+        SELECT MAX(sponsors.count)
+        FROM(
+        SELECT bioguide_id, COUNT(bioguide_id)
+        FROM bill_sponsors 
+        WHERE url ilike '%' || '{}' || '%'
+        GROUP BY bioguide_id) AS sponsors
+        ;""".format(self.congress_num), open_connection())
+        
+        rep_sponsor_metrics = pd.DataFrame([self.bioguide_id],
+                                        columns=['bioguide_id'])
+        rep_sponsor_metrics['rep_sponsor'] = len(rep_sponsor)
+        rep_sponsor_metrics['max_sponsor'] = max_sponsor.loc[0, 'max']
+        rep_sponsor_metrics['sponsor_percent'] = (rep_sponsor_metrics['rep_sponsor']/
+                                   rep_sponsor_metrics['max_sponsor'])
+        
+        self.rep_sponsor_metrics = rep_sponsor_metrics
+    
+    
+    def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
+                rep_votes_metrics=None, rep_sponsor_metrics=None):
+        self.congress_num = congress_num
+        self.bioguide_id = bioguide_id
+        self.days_voted = days_voted
+        self.rep_votes_metrics = rep_votes_metrics
+        self.rep_sponsor_metrics = rep_sponsor_metrics

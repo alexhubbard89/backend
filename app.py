@@ -164,7 +164,95 @@ def user_vote():
     tally_toolkit.user_votes.vote_to_db(vote_data)
     return jsonify(results=vote_data.insert)
 
+## Find number of days voted
+@app.route("/attendance", methods=["POST"])
+def attendance():
+    rep_perfomance = tally_toolkit.Performance()
+    try:
+        data = json.loads(request.data.decode())
+        rep_perfomance.bioguide_id = data['bioguide_id']
+        rep_perfomance.congress_num = data['congress']
+    except:
+        rep_perfomance.bioguide_id = request.form['bioguide_id']
+        rep_perfomance.congress_num = request.form['congress']
 
+    """
+    The dashboard should show the current congress. But
+    for future metrics this should be dynamic for the 
+    congress the user wants to search.
+    """
+    if rep_perfomance.congress_num == 'current':
+        tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    else:
+        rep_perfomance.congress_num = int(rep_perfomance.congress_num)
+
+    try:
+        ## Get attendance
+        tally_toolkit.Performance.num_days_voted(rep_perfomance)
+        return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
+    except:
+        ## If returns no data
+        return jsonify(results=False)
+
+## Find number of votes shes cast
+@app.route("/participation", methods=["POST"])
+def participation():
+    rep_perfomance = tally_toolkit.Performance()
+    try:
+        data = json.loads(request.data.decode())
+        rep_perfomance.bioguide_id = data['bioguide_id']
+        rep_perfomance.congress_num = data['congress']
+    except:
+        rep_perfomance.bioguide_id = request.form['bioguide_id']
+        rep_perfomance.congress_num = request.form['congress']
+
+    """
+    The dashboard should show the current congress. But
+    for future metrics this should be dynamic for the 
+    congress the user wants to search.
+    """
+    if rep_perfomance.congress_num == 'current':
+        tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    else:
+        rep_perfomance.congress_num = int(rep_perfomance.congress_num)
+
+    try:
+        ## Get participation
+        tally_toolkit.Performance.num_votes(rep_perfomance)
+        return jsonify(rep_perfomance.rep_votes_metrics.to_dict(orient='records')[0])
+    except:
+        ## If returns no data
+        return jsonify(results=False)
+
+## Find number of votes shes cast
+@app.route("/efficacy", methods=["POST"])
+def efficacy():
+    rep_perfomance = tally_toolkit.Performance()
+    try:
+        data = json.loads(request.data.decode())
+        rep_perfomance.bioguide_id = data['bioguide_id']
+        rep_perfomance.congress_num = data['congress']
+    except:
+        rep_perfomance.bioguide_id = request.form['bioguide_id']
+        rep_perfomance.congress_num = request.form['congress']
+
+    """
+    The dashboard should show the current congress. But
+    for future metrics this should be dynamic for the 
+    congress the user wants to search.
+    """
+    if rep_perfomance.congress_num == 'current':
+        tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    else:
+        rep_perfomance.congress_num = int(rep_perfomance.congress_num)
+
+    try:
+        ## Get efficacy
+        tally_toolkit.Performance.num_sponsor(rep_perfomance)
+        return jsonify(rep_perfomance.rep_sponsor_metrics.to_dict(orient='records')[0])
+    except:
+        ## If returns no data
+        return jsonify(results=False)
 if __name__ == '__main__':
     ## app.run is to run with flask
     app.run(debug=True)
