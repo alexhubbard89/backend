@@ -172,9 +172,11 @@ def attendance():
         data = json.loads(request.data.decode())
         rep_perfomance.bioguide_id = data['bioguide_id']
         rep_perfomance.congress_num = data['congress']
+        chamber = data['chamber']
     except:
         rep_perfomance.bioguide_id = request.form['bioguide_id']
         rep_perfomance.congress_num = request.form['congress']
+        chamber = request.form['chamber']
 
     """
     The dashboard should show the current congress. But
@@ -186,15 +188,26 @@ def attendance():
     else:
         rep_perfomance.congress_num = int(rep_perfomance.congress_num)
 
-    try:
-        ## Get attendance
-        tally_toolkit.Performance.num_days_voted(rep_perfomance)
-        return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
-    except:
-        ## If returns no data
-        return jsonify(results=False)
+    if chamber.lower() == 'house':
+        try:
+            ## Get attendance
+            tally_toolkit.Performance.num_days_voted_house(rep_perfomance)
+            return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
+        except:
+            ## If returns no data
+            return jsonify(results=False)
+    elif chamber.lower() == 'senate':
+        try:
+            ## Get attendance
+            tally_toolkit.Performance.num_days_voted_senate(rep_perfomance)
+            return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
+        except:
+            ## If returns no data
+            return jsonify(results=False)
+    else:
+        return jsonify(results='check the chamber')
 
-## Find number of votes shes cast
+## Find number of votes cast
 @app.route("/participation", methods=["POST"])
 def participation():
     rep_perfomance = tally_toolkit.Performance()
@@ -202,9 +215,11 @@ def participation():
         data = json.loads(request.data.decode())
         rep_perfomance.bioguide_id = data['bioguide_id']
         rep_perfomance.congress_num = data['congress']
+        chamber = data['chamber']
     except:
         rep_perfomance.bioguide_id = request.form['bioguide_id']
         rep_perfomance.congress_num = request.form['congress']
+        chamber = request.form['chamber']
 
     """
     The dashboard should show the current congress. But
@@ -216,13 +231,25 @@ def participation():
     else:
         rep_perfomance.congress_num = int(rep_perfomance.congress_num)
 
-    try:
-        ## Get participation
-        tally_toolkit.Performance.num_votes(rep_perfomance)
-        return jsonify(rep_perfomance.rep_votes_metrics.to_dict(orient='records')[0])
-    except:
-        ## If returns no data
-        return jsonify(results=False)
+    if chamber.lower() == 'house':
+        try:
+            ## Get participation
+            tally_toolkit.Performance.num_votes_house(rep_perfomance)
+            return jsonify(rep_perfomance.rep_votes_metrics.to_dict(orient='records')[0])
+        except:
+            ## If returns no data
+            return jsonify(results=False)
+    elif chamber.lower() == 'senate':
+        try:
+            ## Get participation
+            tally_toolkit.Performance.num_votes_senate(rep_perfomance)
+            return jsonify(rep_perfomance.rep_votes_metrics.to_dict(orient='records')[0])
+        except:
+            ## If returns no data
+            return jsonify(results=False)
+    else:
+        return jsonify(results='check the chamber')
+        
 
 ## Find number of votes shes cast
 @app.route("/efficacy", methods=["POST"])
