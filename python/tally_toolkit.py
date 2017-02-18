@@ -1480,3 +1480,403 @@ class Performance(object):
         self.days_voted = days_voted
         self.rep_votes_metrics = rep_votes_metrics
         self.rep_sponsor_metrics = rep_sponsor_metrics
+
+class Senate_colleciton(object):
+    """
+    This class will be used to gather
+    the vote data for the seante.
+    
+    Attributes:
+    congress_num
+    session_num
+    vote_menu
+    new_data
+    updated_data
+    to_db
+    roll_search
+    congress_search
+    session_search
+    date_search
+    roll_id
+    votes_df
+    
+    """
+    
+    def collect_senate_vote_menu(self):
+        """
+        This method will collect the senate
+        vote menu. Since the senate's website
+        is somewhat strict on data collection
+        I'm going to send headers to try to not
+        get blacklisted.
+        """
+        
+        ## Start request session and make headers
+        session = requests.Session()
+        postHeaders = {
+            'Accept-Language': 'en-US,en;q=0.8',
+            'Origin': 'http://www.website.com',
+            'Referer': 'http://www.website.com/',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/37.0.2062.120 Chrome/37.0.2062.120 Safari/537.36'
+        }
+        
+        ## Create url and send post request
+        url = 'https://www.senate.gov/legislative/LIS/roll_call_lists/vote_menu_{}_{}.xml'.format(
+        self.congress_num, self.session_num)
+        r = session.post(url, headers=postHeaders)
+        
+        ## Normalize the shitty xml data and clean columns
+        senate_info = json_normalize(bf.data(fromstring(r.content)))
+        senate_info.columns = senate_info.columns.str.strip('.$').str.replace('.', '_')
+
+        ## Save variables for late use
+        congress = senate_info.loc[0, 'vote_summary_congress']
+        session = senate_info.loc[0, 'vote_summary_session']
+        year = senate_info.loc[0, 'vote_summary_congress_year']
+
+        ## Collect vote menu date, clean dates & column names, and add roll_id
+        vote_menu = json_normalize(senate_info.loc[0, 'vote_summary_votes_vote'])
+        vote_menu.columns = vote_menu.columns.str.strip('.$').str.replace('.', '_')
+        vote_menu.loc[:,'vote_date'] = vote_menu.loc[:,'vote_date'].apply(
+            lambda x: str(datetime.datetime.strptime(x + '-{}'.format(year), '%d-%b-%Y')).split(' ')[0])
+        vote_menu.loc[:, 'congress'] = congress
+        vote_menu.loc[:, 'session'] = session
+        vote_menu.loc[:, 'roll_id'] = (vote_menu.loc[:, 'congress'].astype(str) + 
+                                       vote_menu.loc[:, 'session'].astype(str) +
+                                       vote_menu.loc[:, 'vote_number'].astype(str)).astype(int)
+
+        ## Clean null values from each column
+        for column in vote_menu.columns:
+            vote_menu.loc[vote_menu[column].isnull(), column] = None
+
+        clean_cols = ['issue', 'question', 'question_measure', 'result', 'title']
+        for column in clean_cols:
+            vote_menu.loc[vote_menu[column].notnull(),
+                          column] = vote_menu.loc[vote_menu[column].notnull(),
+                                                  column].apply(lambda x: unidecode(x).replace("'", "''"))
+            
+        clean_cols = ['vote_number', 'vote_tally_nays', 'vote_tally_yeas', 'congress',
+                      'session', 'roll_id']
+        for column in clean_cols:
+            vote_menu[column] = vote_menu[column].astype(int)
+            
+        self.vote_menu = vote_menu
+        
+    def menu_to_sql(self):
+        connection = open_connection()
+        cursor = connection.cursor()
+
+        new_data = 0
+        updated_data = 0
+
+        ## Put each row into sql
+        for i in range(len(self.vote_menu)):
+            x = list(self.vote_menu.loc[i,])
+
+            for p in [x]:
+                format_str = """
+                INSERT INTO senate_vote_menu (
+                issue,
+                question,
+                question_measure,
+                result,
+                title,
+                vote_date,
+                vote_number,
+                vote_tally_nays,
+                vote_tally_yeas,
+                congress,
+                session,
+                roll_id)
+                VALUES ('{issue}', '{question}', '{question_measure}',
+                        '{result}', '{title}', '{vote_date}', '{vote_number}', 
+                        '{vote_tally_nays}', '{vote_tally_yeas}',
+                        '{congress}', '{session}', '{roll_id}');"""
+
+
+            sql_command = format_str.format(issue=p[0], question=p[1], question_measure=p[2],
+                                           result=p[3], title=p[4], vote_date=p[5],
+                                           vote_number=p[6], vote_tally_nays=p[7], 
+                                            vote_tally_yeas=p[8], congress=p[9], 
+                                            session=p[10], roll_id=p[11])
+            ## Commit to sql
+            try:
+                cursor.execute(sql_command)
+                connection.commit()
+                new_data += 1
+            except:
+                ## Update what I got
+                connection.rollback()
+                sql_command = """UPDATE senate_vote_menu 
+                SET
+                issue = '{}',
+                question = '{}',
+                question_measure = '{}',
+                result = '{}',
+                title = '{}',
+                vote_date = '{}',
+                vote_number = '{}',
+                vote_tally_nays = '{}',
+                vote_tally_yeas = '{}',
+                congress = '{}',
+                session = '{}'
+                WHERE (roll_id = '{}');""".format(
+                self.vote_menu.loc[i, 'issue'],
+                self.vote_menu.loc[i, 'question'],
+                self.vote_menu.loc[i, 'question_measure'],
+                self.vote_menu.loc[i, 'result'],
+                self.vote_menu.loc[i, 'title'],
+                self.vote_menu.loc[i, 'vote_date'],
+                self.vote_menu.loc[i, 'vote_number'],
+                self.vote_menu.loc[i, 'vote_tally_nays'],
+                self.vote_menu.loc[i, 'vote_tally_yeas'],
+                self.vote_menu.loc[i, 'congress'],
+                self.vote_menu.loc[i, 'session'],
+                self.vote_menu.loc[i, 'roll_id'])    
+                cursor.execute(sql_command)
+                connection.commit()
+                updated_data += 1
+        connection.close()
+        self.new_data = new_data
+        self.updated_data = updated_data
+        
+    def get_senate_votes(self):
+        """
+        This method will be used to get
+        votes from the senate.
+
+        I will use the senate vote menu
+        to find new votes
+        """
+
+        ## Create session, headers and url to serach
+        session = requests.Session()
+        postHeaders = {
+            'Accept-Language': 'en-US,en;q=0.8',
+            'Origin': 'http://www.website.com',
+            'Referer': 'http://www.website.com/',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/37.0.2062.120 Chrome/37.0.2062.120 Safari/537.36'
+        }
+        url = 'https://www.senate.gov/legislative/LIS/roll_call_votes/vote{}{}/vote_{}_{}_{}.xml'.format(
+         self.congress_search, self.session_search, self.congress_search, self.session_search,
+        str(self.roll_search).zfill(5))
+
+        ## Post request for url
+        r = session.post(url, headers=postHeaders)
+
+        ## Get first level of data
+        vote_info = json_normalize(bf.data(fromstring(r.content)))
+        vote_info.columns = vote_info.columns.str.strip('.$').str.replace('.', '_')
+
+        ## Get roll call votes
+        votes_df = json_normalize(vote_info.loc[0, 'roll_call_vote_members_member'])
+        votes_df.columns = votes_df.columns.str.strip('.$').str.replace('.', '_')
+
+        ## Add things for db
+        votes_df.loc[:, 'roll'] = int(self.roll_search)
+        votes_df.loc[:, 'congress'] = int(self.congress_search)
+        votes_df.loc[:, 'session'] = int(self.session_search)
+        votes_df.loc[:, 'date'] = str(self.date_search)
+        votes_df.loc[:, 'year'] = pd.to_datetime(self.date_search).year
+        votes_df.loc[:, 'roll_id'] = int(self.roll_id)
+
+        ## Save that ish!
+        self.votes_df = votes_df
+        
+    def votes_to_sql(self):
+        connection = open_connection()
+        cursor = connection.cursor()
+
+        ## Put each row into sql
+        for i in range(len(self.votes_df)):
+            x = list(self.votes_df.loc[i,])
+
+            for p in [x]:
+                format_str = """
+                INSERT INTO senator_votes_tbl (
+                first_name,
+                last_name,
+                lis_member_id,
+                member_full,
+                party,
+                state,
+                vote_cast,
+                roll,
+                congress,
+                session,
+                date,
+                year,
+                roll_id)
+                VALUES ('{first_name}', '{last_name}', '{lis_member_id}',
+                        '{member_full}', '{party}', '{state}', '{vote_cast}', 
+                        '{roll}', '{congress}', '{session}',
+                        '{date}', '{year}', '{roll_id}');"""
+
+
+            sql_command = format_str.format(first_name=p[0], last_name=p[1], lis_member_id=p[2],
+                                            member_full=p[3], party=p[4], state=p[5], vote_cast=p[6],
+                                            roll=p[7], congress=p[8], session=p[9], date=p[10], 
+                                            year=p[11], roll_id=p[12])
+            ## Commit to sql
+            try:
+                cursor.execute(sql_command)
+                connection.commit()
+            except:
+                ## Update what I got
+                connection.rollback()
+                sql_command = """UPDATE senator_votes_tbl 
+                SET
+                first_name = '{}',
+                last_name = '{}',
+                member_full = '{}',
+                party = '{}',
+                state = '{}',
+                vote_cast = '{}',
+                roll = '{}',
+                congress = '{}',
+                session = '{}',
+                date = '{}',
+                year = '{}'
+                WHERE (lis_member_id = '{}'
+                AND roll_id = '{}');""".format(
+                self.votes_df.loc[i, 'first_name'],
+                self.votes_df.loc[i, 'last_name'],
+                self.votes_df.loc[i, 'member_full'],
+                self.votes_df.loc[i, 'party'],
+                self.votes_df.loc[i, 'state'],
+                self.votes_df.loc[i, 'vote_cast'],
+                self.votes_df.loc[i, 'roll'],
+                self.votes_df.loc[i, 'congress'],
+                self.votes_df.loc[i, 'session'],
+                self.votes_df.loc[i, 'date'],
+                self.votes_df.loc[i, 'year'],
+                self.votes_df.loc[i, 'lis_member_id'],
+                self.votes_df.loc[i, 'roll_id'])    
+                cursor.execute(sql_command)
+                connection.commit()
+        connection.close()
+        
+    def daily_senate_menu(self):
+        """
+        In this method I will be collecting the senate vote menu
+        for the entire current year. I will then compare the 
+        highest roll call vote in the database to the collected
+        data. If I have collected data that is not in the db
+        then I'll insert the new data points. I will this save
+        an attribute to say how many new rows were inserted
+        to the db. That number will be included in the daily
+        emails.
+        """
+
+        ## Query db for max roll call for current year
+        current_year = datetime.date.today().year
+
+        sql_query = """
+        SELECT max(vote_number) FROM senate_vote_menu
+        where date(vote_date) >= '{}-01-01;'
+        """.format(current_year)
+        senate_menu = pd.read_sql_query(sql_query, open_connection())
+        
+        
+        sql_query = """
+        SELECT max(congress) as congress, max(session) as session 
+        FROM senate_vote_menu
+        where date(vote_date) >= '{}-01-01;'
+        """.format(current_year)
+        max_senate_vars = pd.read_sql_query(sql_query, open_connection())
+
+
+        ## Set congress and session vars
+        self.congress_num = max_senate_vars.loc[0, 'congress']
+        self.session_num = max_senate_vars.loc[0, 'session']
+
+        ## Collect house vote menu for current year and compare
+        Senate_colleciton.collect_senate_vote_menu(self)
+        self.vote_menu = self.vote_menu[self.vote_menu['vote_number'] > 
+                                        senate_menu.loc[0,'max']].reset_index(drop=True)
+        
+        num_rows = len(self.vote_menu)
+        
+        if num_rows == 0:
+            self.to_db = 'No new vote menu data.'
+            print self.to_db
+        if num_rows > 0:
+            self.to_db = '{} new vote(s) in the data base.'.format(num_rows)
+            print self.to_db
+            Senate_colleciton.menu_to_sql(self)
+            
+    def daily_senate_votes(self):
+        """
+        In this method I will be checking that
+        I have the most up-to-date senate votes.
+        I need to collect vote menu data first
+        and then check that I'm not missing any
+        votes from the vote menu table.
+        If I am then go collect them.
+        """
+
+        ## Query db for max roll call for current year
+        current_year = datetime.date.today().year
+
+        ## Get max vote from vote menu
+        sql_query = """
+        SELECT max(vote_number) FROM senate_vote_menu
+        where date(vote_date) >= '{}-01-01;'
+        """.format(current_year)
+        senate_menu = pd.read_sql_query(sql_query, open_connection())
+        
+        ## Get max votes form vote table
+        sql_query = """
+        SELECT max(roll)
+        FROM senator_votes_tbl
+        where date(date) >= '{}-01-01;'
+        """.format(current_year)
+        senate_votes = pd.read_sql_query(sql_query, open_connection())
+
+        ## Check if you have most up-to-date data
+        if senate_menu.loc[0, 'max'] == (senate_votes.loc[0, 'max']):
+            print 'Have all senate votes :)'
+        else:
+            """
+            If there is more vote menu data than votes
+            then go collect and house the missing votes.
+            """
+            sql_query = """
+            SELECT * FROM senate_vote_menu
+            where date(vote_date) >= '{}-01-01'
+            and vote_number > {};
+            """.format(current_year,
+                       senate_votes.loc[0, 'max'])
+            senate_menu = pd.read_sql_query(sql_query, open_connection())
+
+            print 'collect {} missing senate votes!'.format(len(senate_menu))
+            for i in range(len(senate_menu)):
+                print senate_menu.loc[i, 'vote_number']
+                self.roll_search = senate_menu.loc[i, 'vote_number']
+                self.congress_search = senate_menu.loc[i, 'congress']
+                self.session_search = senate_menu.loc[i, 'session']
+                self.date_search = senate_menu.loc[i, 'vote_date']
+                self.roll_id = senate_menu.loc[i, 'roll_id']
+
+                ## Find data
+                Senate_colleciton.get_senate_votes(self)
+
+                ## House
+                Senate_colleciton.votes_to_sql(self)
+        
+    def __init__(self, congress_num=None, session_num=None, vote_menu=None,
+                new_data=None, updated_data=None, to_db=None, roll_search=None,
+                congress_search=None, session_search=None, date_search=None,
+                roll_id=None, votes_df=None):
+        self.congress_num = congress_num
+        self.session_num = session_num
+        self.vote_menu = vote_menu
+        self.new_data = new_data
+        self.updated_data = updated_data
+        self.to_db = to_db
+        self.roll_search = roll_search
+        self.congress_search = congress_search
+        self.session_search = session_search
+        self.date_search = date_search
+        self.roll_id = roll_id
+        self.votes_df = votes_df

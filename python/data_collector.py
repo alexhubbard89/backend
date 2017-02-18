@@ -6,7 +6,7 @@ import imp
 collect_current_congress = imp.load_source('module', './python/collect_current_congress.py')
 tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
 
-## For testing
+# # For testing
 # collect_current_congress = imp.load_source('module', 'collect_current_congress.py')
 # tally_toolkit = imp.load_source('module', 'tally_toolkit.py')
 
@@ -79,7 +79,24 @@ try:
     good_collection += """\n\tSponsorship collected - New data: {}, Update data: {}""".format(sponsorship_data.new_data,
         sponsorship_data.updated_data)
 except:
-    bad_collection += """\n\ttSponsorship collector"""
+    bad_collection += """\n\tSponsorship collector"""
+
+print 'Collect senate vote menu'
+try:
+    senate_data = tally_toolkit.Senate_colleciton()
+    tally_toolkit.Senate_colleciton.daily_senate_menu(senate_data)
+    good_collection += """\n\tSenate Vote Menu - {}""".format(senate_data.to_db)
+except:
+    bad_collection += """\n\tSenate Vote Menu"""
+
+
+print 'Collect new senate votes'
+try:
+    senate_data = tally_toolkit.Senate_colleciton()
+    tally_toolkit.Senate_colleciton.daily_senate_menu(senate_data)
+    good_collection += """\n\tSenate Votes"""
+except:
+    bad_collection += """\n\tSenate Votes"""
 
 msg['Subject'] = "Data Collection Report"
 body_msg = """Data Collection Report
