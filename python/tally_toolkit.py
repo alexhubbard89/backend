@@ -1367,10 +1367,10 @@ class Performance(object):
         cong_num = pd.read_sql_query("""select max(congress) from house_vote_menu;""",open_connection())
         self.congress_num = cong_num.loc[0, 'max']
         
-    def num_days_voted(self):
+    def num_days_voted_house(self):
         """
         This method will be used to find the
-        number of days a rep has voted on
+        number of days a house rep has voted on
         legislatoin and compare it to the
         total number of days that roll call
         voting happened.
@@ -1386,7 +1386,8 @@ class Performance(object):
         SELECT DISTINCT bioguide_id, date
         FROM house_votes_tbl
         where congress = {}
-        AND bioguide_id = '{}')
+        AND bioguide_id = '{}'
+        AND vote != 'Not Voting')
         as distinct_votes
         GROUP BY bioguide_id;
         """.format(self.congress_num,
@@ -1405,8 +1406,57 @@ class Performance(object):
         
         self.days_voted = days_voted
         
+    def num_days_voted_senate(self):
+        """
+        This method will be used to find the
+        number of days a senator has voted on
+        legislatoin and compare it to the
+        total number of days that roll call
+        voting happened.
         
-    def num_votes(self):
+        This metric will be a proxy for 
+        days showing up to work.
+        """
+
+        find_senator = pd.read_sql("""
+        SELECT * 
+        FROM congress_bio 
+        WHERE chamber = 'senate'
+        AND bioguide_id = '{}'""".format(
+                self.bioguide_id), open_connection())
+
+        state_short = us.states.mapping('name', 'abbr')[find_senator.loc[0, 'state']]
+        last_name = find_senator.loc[0, 'name'].split(',')[0]
+
+        days_voted = pd.read_sql_query("""
+        SELECT distinct_votes.last_name, 
+        COUNT(distinct_votes.last_name) as days_at_work
+        FROM (SELECT DISTINCT last_name, date
+        FROM senator_votes_tbl
+        WHERE congress = {}
+        AND last_name ilike '%' || '{}' || '%'
+        AND state = '{}'
+        AND vote_cast != 'Not Voting')
+        AS distinct_votes
+        GROUP BY last_name;""".format(
+                self.congress_num,
+                last_name, state_short),
+                                       open_connection())
+
+        vote_dates = pd.read_sql_query("""
+            SELECT COUNT(DISTINCT(date)) as total_work_days 
+            FROM senator_votes_tbl 
+            WHERE congress = {};""".format(
+                self.congress_num), open_connection())
+
+        ## Join and get percent
+        days_voted.loc[:, 'total_work_days'] = vote_dates.loc[0, 'total_work_days']
+        days_voted['percent_at_work'] = (days_voted['days_at_work']/
+                                         days_voted['total_work_days'])
+
+        self.days_voted = days_voted
+        
+    def num_votes_house(self):
         """
         This method will be used to find the
         total number of times a rep has voted
@@ -1418,14 +1468,15 @@ class Performance(object):
         SELECT COUNT(vote) as rep_votes
         FROM house_votes_tbl
         where congress = {}
-        AND bioguide_id = '{}';
+        AND bioguide_id = '{}'
+        AND vote != 'Not Voting';
         """.format(self.congress_num,
                    self.bioguide_id), open_connection())
         
         total_votes = pd.read_sql_query("""
         SELECT COUNT(DISTINCT(roll_id)) total_votes
         FROM house_votes_tbl
-        where congress = {};
+        WHERE congress = {};
         """.format(self.congress_num), open_connection())
         
         rep_votes_metrics = pd.DataFrame([self.bioguide_id],
@@ -1435,6 +1486,50 @@ class Performance(object):
         rep_votes_metrics['percent_votes'] = (rep_votes_metrics['rep_votes']/
                                               rep_votes_metrics['total_votes'])
         
+        self.rep_votes_metrics = rep_votes_metrics
+        
+    def num_votes_senate(self):
+        """
+        This method will be used to find the
+        total number of times a senator has voted
+        and compare it to the total number
+        of roll call votes for the congress.
+        """
+
+        find_senator = pd.read_sql("""
+        SELECT * 
+        FROM congress_bio 
+        WHERE chamber = 'senate'
+        AND bioguide_id = '{}'""".format(self.bioguide_id),
+                                   open_connection())
+
+        state_short = us.states.mapping('name', 'abbr')[find_senator.loc[0, 'state']]
+        last_name = find_senator.loc[0, 'name'].split(',')[0]
+
+        rep_votes = pd.read_sql_query("""
+        SELECT COUNT(vote_cast) as rep_votes
+        FROM senator_votes_tbl
+        where congress = {}
+        AND last_name ilike '%' || '{}' || '%'
+        AND state = '{}'
+        AND vote_cast != 'Not Voting';
+        """.format(self.congress_num,
+                   last_name,
+                  state_short), open_connection())
+
+        total_votes = pd.read_sql_query("""
+        SELECT COUNT(DISTINCT(roll_id)) total_votes
+        FROM senator_votes_tbl
+        WHERE congress = {};
+        """.format(self.congress_num), open_connection())
+
+        rep_votes_metrics = pd.DataFrame([self.bioguide_id],
+                                        columns=['bioguide_id'])
+        rep_votes_metrics['rep_votes'] = rep_votes.loc[0, 'rep_votes']
+        rep_votes_metrics['total_votes'] = total_votes.loc[0, 'total_votes']
+        rep_votes_metrics['percent_votes'] = (rep_votes_metrics['rep_votes']/
+                                              rep_votes_metrics['total_votes'])
+
         self.rep_votes_metrics = rep_votes_metrics
         
         
