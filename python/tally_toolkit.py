@@ -16,6 +16,8 @@ import datetime
 import re
 import us
 from unidecode import unidecode
+## algo to summarize
+from gensim.summarization import summarize
 
 try:    
     urlparse.uses_netloc.append("postgres")
@@ -1305,6 +1307,29 @@ class user_votes(object):
         self.leg_for_user = leg_for_user.drop(['bill_main_subject',
                                               'ideolog_to_predict',
                                               'predict_user_ideology'], 1)
+
+    def summarize_bill(self):
+        url = self.leg_for_user.loc[0, 'issue_link']
+        r = requests.get(url)
+        page = BeautifulSoup(r.content, 'lxml')
+        text = ''
+        paragraph = page.find('div', id='bill-summary').findAll('p')
+
+        for i in range(len(paragraph)):
+            text += (str(unidecode(paragraph[i].text.strip())))
+            
+        try:
+            x = summarize(text)
+            if (len(x) > 0) & (len(x) < 100):
+                return x.strip()
+            elif (len(x) < 100):
+                x = summarize(text, word_count=50)
+                return x.strip()
+            elif len(x) == 0:
+                return text
+        except:
+            print 'no summary'
+            return text
         
     def vote_to_db(self):
         """
