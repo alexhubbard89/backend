@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tally</title>
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600" rel="stylesheet">
+</head>
+<body>
+  <style>
+    body {
+      background-color: #FFF;
+      color: #333;
+      font-family: 'Open Sans', sans-serif;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    a {
+      text-decoration: none;
+      color: #333;
+    }
+
+    h1 {
+      color:  #7EBFE2;
+      text-transform: uppercase;
+      margin-bottom: 0;
+    }
+
+    .wrap {
+      width: 80%;
+      margin: 0 auto;
+      display: block;
+    }
+
+    .mission, .description {
+      width: 80%;
+      max-width: 540px;
+      margin: 60px auto ;
+      display: block;
+      text-align: left;
+    }
+
+    .description {
+      margin-top: 40px;
+    }
+
+    .founders, .others {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .person {
+      margin: 0 20px;
+      min-width: 120px;
+    }
+
+    .photo-container {
+      background-size: cover;
+      background-position: center;
+      height: 160px;
+      width: 160px;
+      border-radius: 85px;
+      margin: 0 auto;
+      border: 5px solid #7EBFE2;
+    }
+
+    .others {
+      margin-top: 30px;
+    }
+
+    .contact {
+      margin: 60px auto ;
+      text-align: center;
+    }
+
+    .name {
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .title {
+      margin: 0;
+    }
+
+    .social {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon {
+      max-width: 26px;
+      margin: 5px;
+      text-align: center;
+    }
+
+    footer {
+      margin: 80px 0 30px 0;
+      font-size: 11px;
+    }
+
+    #7EBFE2
+    #C0000F
+  </style>
+  <div class="wrap">
+    <header>
+      <h1>Tally</h1>
+      <h3 style="margin: 0; color: #7EBFE2"><em>— Coming soon —</em></h3>
+    </header>
+    <section class="description">
+      <h3>What is Tally?</h3>
+      <p>Tally is a web app that makes it easy to keep tabs on your Senators and Congresspeople. With features that highlight attendance, voting habits, participation and efficacy, we help you decide how accurately your legislators represent your interests.</p>
+      <p>Tally is the brainchild of Alex Hubbard, a political junkie who saw a growing need for this information in our increasingly turbulent political climate. Our platform is data-driven, journalism-free, and ad-free. We've drilled down the most important metrics about your politicians, so you can focus less on headlines and more on hard facts.</p>
+    </section>
+    <section class="mission">
+      <h3>Mission Statement</h3>
+      <p>Tally aims to provide all people with an effortless and fresh way to connect with their elected officials and review legislation that affects their district.</p>
+      <p>We strive to create a reliable, impartial and straightforward experience that encourages confidence in voters and accountability in representatives.</p>
+      <p>Ultimately, the Tally community will be comprised of users who are dedicated to establishing a stronger understanding of the political system and inspired to lead meaningful civic action.</p>
+    </section>
+    <section class="team">
+      <h3>Meet the Team</h3>
+      <div class="founders">
+        <div class="person">
+          <div class="photo-container" style="background-image: url(https://s.gravatar.com/avatar/ec9a9ef7807491f9da061ac33811b8e5?s=600)">
+            <!-- background of this div is your photo -->          
+          </div>
+          <p class="name">Alex Hubbard</p>
+          <p class="title">Founder, Data Scientist,<br/>Back End Engineer</p>
+          <div class="social">
+            <a href="https://github.com/alexhubbard89" target="_blank"><img class="icon" src="http://i64.tinypic.com/f9dvnk.png"></a>
+            <a href="https://www.linkedin.com/in/alexhubbard89/" target="_blank"><img class="icon" src="http://i67.tinypic.com/350wc2s.png"></a>
+          </div>
+        </div>
+        <div class="person">
+          <a href="https://www.linkedin.com/in/kimhart1">
+            <div class="photo-container" style="background-image: url(https://s.gravatar.com/avatar/a2f880ddbe26809803740b327fce7d99?s=600)"></div>
+            <p class="name">Kim Hart</p>
+            <p class="title">Co-Founder,<br/>Front End Engineer</p>
+            <div class="social">
+              <a href="https://github.com/kimhart" target="_blank"><img class="icon" src="http://i64.tinypic.com/f9dvnk.png"></a>
+              <a href="https://www.linkedin.com/in/kimhart1" target="_blank"><img class="icon" src="http://i67.tinypic.com/350wc2s.png"></a>
+              <a href="https://www.kimhart.nyc" target="_blank"><img class="icon" src="http://i66.tinypic.com/2r2t7hc.png"></a>
+            </div>
+          </a>
+        </div>
+      </div>
+      <div class="others">
+        <div class="person">
+          <div class="photo-container" style="background-image: url(https://media.licdn.com/mpr/mpr/shrinknp_400_400/AAEAAQAAAAAAAAj3AAAAJDNjYjE4ZmZlLWI4OTctNDc0NS04YzJmLTI2YTNjZjg3OTQzMQ.jpg)"></div>
+          <p class="name">Jesse Smith</p>
+          <p class="title">UX Designer</p>
+          <div class="social">
+            <a href="https://www.linkedin.com/in/jesselnsmith/" target="_blank"><img class="icon" src="http://i67.tinypic.com/350wc2s.png"></a>
+            <a href="https://www.jesselnsmith.com/" target="_blank"><img class="icon" src="http://i66.tinypic.com/2r2t7hc.png"></a>
+          </div>
+        </div>
+        <div class="person">
+          <div class="photo-container" style="background-image: url(https://lh3.googleusercontent.com/2CGLsO60T-v_n0HCZo6tj5ja2Zx7tU2YEh5OUx8CJOGtBCozGkXJp9l846O3ftaQO0S9AMC4m6aqFw=w1280-h800-rw-no)"></div>
+          <p class="name">Ryano Taylor</p>
+          <p class="title">Front End Engineer</p>
+          <div class="social">
+            <a href="https://github.com/ryanosaur" target="_blank"><img class="icon" src="http://i64.tinypic.com/f9dvnk.png"></a>
+            <a href="https://www.linkedin.com/in/ryanomite/" target="_blank"><img class="icon" src="http://i67.tinypic.com/350wc2s.png"></a>
+          </div>
+        </div>
+        <div class="person">
+          <div class="photo-container" style="background-image: url(http://oi65.tinypic.com/96mg5z.jpg)"></div>
+          <p class="name">Ian Bradley</p>
+          <p class="title">Designer</p>
+          <div class="social">
+            <a href="https://www.linkedin.com/in/ian-bradley-18300758/" target="_blank"><img class="icon" src="http://i67.tinypic.com/350wc2s.png"></a>
+            <a href="https://www.ianbradley.tv" target="_blank"><img class="icon" src="http://i66.tinypic.com/2r2t7hc.png"></a>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="contact">
+      <h3>Contact Us</h3>
+      <p>Want to learn more about what we're building? Reach out to <span style="color: #C0000F">alex@tally.us.com</span>.</p>
+    </section>
+    <footer>
+      <p>&copy;Tally, 2017</p>
+    </footer>
+  </div>
+</body>
+</html>
