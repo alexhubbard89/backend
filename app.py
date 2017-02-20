@@ -144,6 +144,11 @@ def legislation_for_user():
     except:
         vote_data.user_id = request.form['user_id']
     tally_toolkit.user_votes.available_votes(vote_data)
+    try:
+        bill_summary = tally_toolkit.user_votes.summarize_bill(vote_data)
+        vote_data.leg_for_user.loc[0, 'summary'] = bill_summary
+    except:
+        vote_data.leg_for_user.loc[0, 'summary'] = 'No Summary'
     if len(vote_data.leg_for_user) > 0:
         return jsonify(vote_data.leg_for_user.to_dict(orient='records')[0])
     else:
