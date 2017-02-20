@@ -23,21 +23,22 @@ app.logger.setLevel(logging.ERROR)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    if request.method == 'POST':
-        user = tally_toolkit.user_info()
-        user.email = request.form['email']
-        user.password = request.form['password']
-        matched_credentials = tally_toolkit.user_info.search_user(user)
+    return render_template('landing.html')
+    # if request.method == 'POST':
+    #     user = tally_toolkit.user_info()
+    #     user.email = request.form['email']
+    #     user.password = request.form['password']
+    #     matched_credentials = tally_toolkit.user_info.search_user(user)
 
-        if matched_credentials == True:
-            user_data = tally_toolkit.user_info.get_user_dashboard_data(user)
-            print user_data
-            return render_template('login_yes.html', user_data=user_data)
-        else:
-            error = "Wrong user name or password"
-            return render_template('login.html', error=error)
-    else:
-        return render_template('login.html')
+    #     if matched_credentials == True:
+    #         user_data = tally_toolkit.user_info.get_user_dashboard_data(user)
+    #         print user_data
+    #         return render_template('login_yes.html', user_data=user_data)
+    #     else:
+    #         error = "Wrong user name or password"
+    #         return render_template('login.html', error=error)
+    # else:
+    #     return render_template('login.html')
 
 
 ## Login testing
@@ -249,7 +250,7 @@ def participation():
             return jsonify(results=False)
     else:
         return jsonify(results='check the chamber')
-        
+
 
 ## Find number of votes shes cast
 @app.route("/efficacy", methods=["POST"])
