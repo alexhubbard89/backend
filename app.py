@@ -24,22 +24,6 @@ app.logger.setLevel(logging.ERROR)
 @app.route('/', methods=['GET', 'POST'])
 def index():
     return render_template('landing.html')
-    # if request.method == 'POST':
-    #     user = tally_toolkit.user_info()
-    #     user.email = request.form['email']
-    #     user.password = request.form['password']
-    #     matched_credentials = tally_toolkit.user_info.search_user(user)
-
-    #     if matched_credentials == True:
-    #         user_data = tally_toolkit.user_info.get_user_dashboard_data(user)
-    #         print user_data
-    #         return render_template('login_yes.html', user_data=user_data)
-    #     else:
-    #         error = "Wrong user name or password"
-    #         return render_template('login.html', error=error)
-    # else:
-    #     return render_template('login.html')
-
 
 ## Login testing
 @app.route("/login", methods=["POST"])
@@ -95,10 +79,10 @@ def create_user():
     user_made = tally_toolkit.user_info.user_info_to_sql(user)
 
     if user_made == True:
-        return jsonify(True)
+        return jsonify(results=True)
     elif user_made == False:
         error = "oops! That user name already exists."
-        return jsonify(False)
+        return jsonify(results=False)
 
 ## Pass back congress bios
 @app.route("/congress_bio", methods=["POST"])
