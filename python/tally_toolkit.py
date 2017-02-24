@@ -125,7 +125,7 @@ class user_info(object):
             cursor.execute(sql_command)
             connection.commit()
             user_made = True
-        except IntegrityError as e:
+        except:
             """duplicate key value violates unique constraint "user_tbl_user_name_key"
             DETAIL:  Key (user_name)=(user_test) already exists."""
             connection.rollback()
