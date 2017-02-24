@@ -1313,23 +1313,41 @@ class user_votes(object):
         r = requests.get(url)
         page = BeautifulSoup(r.content, 'lxml')
         text = ''
-        paragraph = page.find('div', id='bill-summary').findAll('p')
-
-        for i in range(len(paragraph)):
-            text += (str(unidecode(paragraph[i].text.strip())))
-            
         try:
-            x = summarize(text)
-            if (len(x) > 0) & (len(x) < 100):
-                return x.strip()
-            elif (len(x) < 100):
-                x = summarize(text, word_count=50)
-                return x.strip()
-            elif len(x) == 0:
-                return text
+            """If there is not bill-summary div then 
+            there is no summary."""
+            paragraph = page.find('div', id='bill-summary').findAll('p')
+
+            for i in range(len(paragraph)):
+                text += (str(unidecode(paragraph[i].text.strip())))
+
+            """Gensim breaks if less than 3 sentances. When scraping
+            the senetences lose period space. Add space to have more
+            sentences."""
+            text = text.replace('.', '. ').replace('.  ', '. ').replace('U. S. ', 'U.S. ').replace('H. R. ', 'H.R.')
+
+            try:
+                text_sum = summarize(text)
+                """If no summary was made or it's really long
+                then sumarize with a 50 word count"""
+                if (len(text_sum) > 100):
+                    text_sum = summarize(text, word_count=50)
+                if (len(text_sum) == 0):
+                    text_sum = summarize(text, word_count=100)
+            except:
+                print 'no summary'
+                text_sum = ''
+
+
+            if len(text_sum) > 0:
+                return text_sum.strip().replace('\n', '').replace('\t', '').replace('\"', '"' )
+            elif len(text) > 0:
+                return text.strip().replace('\n', '').replace('\t', '').replace('\"', '"' )
+            else:
+                return 'No summary available'
         except:
-            print 'no summary'
-            return text
+            return 'No summary available'
+
         
     def vote_to_db(self):
         """
