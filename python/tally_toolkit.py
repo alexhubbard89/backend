@@ -39,12 +39,12 @@ except:
 
     def open_connection():
         connection = psycopg2.connect(
-        database=creds['database'],
-        user=creds['user'],
-        password=creds['password'],
-        host=creds['host'],
-        port=creds['port']
-        )
+            database=creds['database'],
+            user=creds['user'],
+            password=creds['password'],
+            host=creds['host'],
+            port=creds['port']
+            )
         return connection
     
 class user_info(object):
@@ -845,7 +845,7 @@ class committee_collector(object):
 
         ## Join
         df = pd.merge(self.committee_membership, congress_bio[['bioguide_id', 'district', 'state']],
-             left_on=['state_long', 'district_num'], right_on=['state', 'district']).drop_duplicates()
+             left_on=['state_long', 'district_num'], right_on=['state', 'district']).drop_duplicates().reset_index(drop=True)
         df = df[['committee_leadership', 'committee', 'subcommittee', 'bioguide_id']]
 
         ## Clean columns
