@@ -174,7 +174,7 @@ def attendance():
     congress the user wants to search.
     """
     tally_toolkit.Performance.current_congress_num(rep_perfomance)
-    
+
     # if rep_perfomance.congress_num == 'current':
     #     tally_toolkit.Performance.current_congress_num(rep_perfomance)
     # else:
@@ -184,6 +184,7 @@ def attendance():
         try:
             ## Get attendance
             tally_toolkit.Performance.num_days_voted_house(rep_perfomance)
+            rep_perfomance.days_voted = rep_perfomance.days_voted[[  'days_at_work', 'percent_at_work', 'total_work_days']]
             return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
         except:
             ## If returns no data
@@ -192,6 +193,7 @@ def attendance():
         try:
             ## Get attendance
             tally_toolkit.Performance.num_days_voted_senate(rep_perfomance)
+            rep_perfomance.days_voted = rep_perfomance.days_voted[[  'days_at_work', 'percent_at_work', 'total_work_days']]
             return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
         except:
             ## If returns no data
