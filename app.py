@@ -161,11 +161,11 @@ def attendance():
     try:
         data = json.loads(request.data.decode())
         rep_perfomance.bioguide_id = data['bioguide_id']
-        rep_perfomance.congress_num = data['congress']
+        # rep_perfomance.congress_num = data['congress']
         chamber = data['chamber']
     except:
         rep_perfomance.bioguide_id = request.form['bioguide_id']
-        rep_perfomance.congress_num = request.form['congress']
+        # rep_perfomance.congress_num = request.form['congress']
         chamber = request.form['chamber']
 
     """
@@ -173,10 +173,12 @@ def attendance():
     for future metrics this should be dynamic for the 
     congress the user wants to search.
     """
-    if rep_perfomance.congress_num == 'current':
-        tally_toolkit.Performance.current_congress_num(rep_perfomance)
-    else:
-        rep_perfomance.congress_num = int(rep_perfomance.congress_num)
+    tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    
+    # if rep_perfomance.congress_num == 'current':
+    #     tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    # else:
+    #     rep_perfomance.congress_num = int(rep_perfomance.congress_num)
 
     if chamber.lower() == 'house':
         try:
