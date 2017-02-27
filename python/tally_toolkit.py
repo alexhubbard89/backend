@@ -46,6 +46,33 @@ except:
             port=creds['port']
             )
         return connection
+
+"""Function to sanitize user input.
+This would be too much to put into a class"""
+def sanitize(inputstr):
+    sanitized = str(inputstr).replace("'", "''")
+    badstrings = [
+        ';',
+        '$',
+        '&&',
+        '../',
+        '<',
+        '>',
+        '%3C',
+        '%3E',
+        '--',
+        '1,2',
+        '\x00',
+        '`',
+        '(',
+        ')',
+        'file://',
+        'input://'
+    ]
+    for badstr in badstrings:
+        if badstr in sanitized:
+            sanitized = sanitized.replace(badstr, '')
+    return sanitized
     
 class user_info(object):
     """
@@ -54,6 +81,21 @@ class user_info(object):
     Attributes: email, password, if password is correct, name, gender, dob,
     street, zip_code, and user_df
     """
+
+    def check_address(self):
+        street = self.street.lower().title().replace(' ', '+')
+        url = "https://maps.googleapis.com/maps/api/geocode/json?address={},+{}".format(street, str(self.zip_code))
+        r = requests.get(url)
+        if r.status_code == 200:
+            try:
+                r.json()['results'][0]['partial_match']
+                self.address_check = "Bad address"
+            except:
+                """Address is good"""
+                self.address_check = True
+        else:
+            self.address_check = "Bad request"
+        
     
     def create_user_params(self):
         """Hold data about the user. We've collected all of the information we need from the
@@ -293,7 +335,8 @@ class user_info(object):
     
     def __init__(self, email=None, password=None, password_match=False, first_name=None,
                 last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None,
-                state_long=None, district=None, bioguide_id_to_search=None, chamber=None):
+                state_long=None, district=None, bioguide_id_to_search=None, chamber=None,
+                address_check=None):
         self.email = email
         self.password = password
         self.password_match = password_match
@@ -308,6 +351,7 @@ class user_info(object):
         self.district = district
         self.bioguide_id_to_search = bioguide_id_to_search
         self.chamber = chamber
+        self.address_check = address_check
 
 
 class vote_collector(object):

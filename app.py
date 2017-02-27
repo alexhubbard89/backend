@@ -31,11 +31,11 @@ def login():
     user = tally_toolkit.user_info()
     try:
         data = json.loads(request.data.decode())
-        user.email = data['email']
-        user.password = data['password']
+        user.email = tally_toolkit.sanitize(data['email'])
+        user.password = tally_toolkit.sanitize(data['password'])
     except:
-        user.email = request.form['email']
-        user.password = request.form['password']
+        user.email = tally_toolkit.sanitize(request.form['email'])
+        user.password = tally_toolkit.sanitize(request.form['password'])
     matched_credentials = tally_toolkit.user_info.search_user(user)
     if matched_credentials == True:
         user_data = tally_toolkit.user_info.get_user_data(user)
@@ -54,35 +54,50 @@ def create_user():
     try:
         print 'trying first way'
         data = json.loads(request.data.decode())
-        user.email = data['email']
-        user.password = data['password']
-        user.first_name = data['first_name']
-        user.last_name = data['last_name']
-        user.gender = data['gender']
-        user.dob = data['dob']
-        user.street = data['street']
-        user.zip_code = data['zip_code']
+        user.email = tally_toolkit.sanitize(data['email'])
+        user.password = tally_toolkit.sanitize(data['password'])
+        user.first_name = tally_toolkit.sanitize(data['first_name'])
+        user.last_name = tally_toolkit.sanitize(data['last_name'])
+        user.gender = tally_toolkit.sanitize(data['gender'])
+        user.dob = tally_toolkit.sanitize(data['dob'])
+        user.street = tally_toolkit.sanitize(data['street'].replace("'", ''))
+        user.zip_code = tally_toolkit.sanitize(data['zip_code'])
 
     except:
         print 'trying second way'
-        user.email = request.form['email']
-        user.password = request.form['password']
-        user.first_name = request.form['first_name']
-        user.last_name = request.form['last_name']
-        user.gender = request.form['gender']
-        user.dob = request.form['dob']
-        user.street = request.form['street']
-        user.zip_code = request.form['zip_code']
+        user.email = tally_toolkit.sanitize(request.form['email'])
+        user.password = tally_toolkit.sanitize(request.form['password'])
+        user.first_name = tally_toolkit.sanitize(request.form['first_name'])
+        user.last_name = tally_toolkit.sanitize(request.form['last_name'])
+        user.gender = tally_toolkit.sanitize(request.form['gender'])
+        user.dob = tally_toolkit.sanitize(request.form['dob'])
+        user.street = tally_toolkit.sanitize(request.form['street'].replace("'", ''))
+        user.zip_code = tally_toolkit.sanitize(request.form['zip_code'])
 
-    print user.zip_code
+    #### Validate
+
+    ## DOB
+    try: 
+        print pd.to_datetime(user.dob)
+    except: 
+        return jsonify(results="Incorrect date format, should be YYYY-MM-DD")
+
+    ## Address
+    """Check if something bad was returned. If not keep moving."""
+
+    tally_toolkit.user_info.check_address(user)
+    if user.address_check == "Bad address":
+        return jsonify(results="Bad address")
+    elif user.address_check == "Bad request":
+        return jsonify(results="Bad request")
+
     user.user_df = tally_toolkit.user_info.create_user_params(user)
     user_made = tally_toolkit.user_info.user_info_to_sql(user)
 
     if user_made == True:
         return jsonify(results=True)
     elif user_made == False:
-        error = "oops! That user name already exists."
-        return jsonify(results=False)
+        return jsonify(results="oops! That user name already exists.")
 
 ## Pass back congress bios
 @app.route("/congress_bio", methods=["POST"])
