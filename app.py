@@ -200,7 +200,7 @@ def attendance():
             ## Get attendance
             tally_toolkit.Performance.num_days_voted_house(rep_perfomance)
             rep_perfomance.days_voted = rep_perfomance.days_voted[[  'days_at_work', 'percent_at_work', 'total_work_days']]
-            return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
+            return jsonify(results=rep_perfomance.days_voted.to_dict(orient='records')[0])
         except:
             ## If returns no data
             return jsonify(results=False)
@@ -209,7 +209,7 @@ def attendance():
             ## Get attendance
             tally_toolkit.Performance.num_days_voted_senate(rep_perfomance)
             rep_perfomance.days_voted = rep_perfomance.days_voted[[  'days_at_work', 'percent_at_work', 'total_work_days']]
-            return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
+            return jsonify(results=rep_perfomance.days_voted.to_dict(orient='records')[0])
         except:
             ## If returns no data
             return jsonify(results=False)
