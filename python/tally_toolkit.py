@@ -338,6 +338,55 @@ class user_info(object):
         WHERE served_until = '{}';""".format(self.return_rep_list), open_connection())
         
         return x[['name', 'bioguide_id', 'state', 'district', 'chamber']].drop_duplicates().reset_index(drop=True)
+
+    def find_dist_by_zip(self):
+
+        s = requests.Session()
+        s.auth = ('user', 'pass')
+        headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36',
+        }
+        url = 'http://ziplook.house.gov/htbin/findrep?ZIP={}&Submit=FIND+YOUR+REP+BY+ZIP'.format(self.zip_code)
+        r = requests.get(url=url, headers=headers)
+        page = BeautifulSoup(r.content, 'lxml')
+        possible_reps = str(page.findAll('div', id='PossibleReps')[0])
+        
+        district_info = pd.DataFrame()
+
+        for i in range(1, len(possible_reps.split('/zip/pictures/'))):
+            state_dist = possible_reps.split('/zip/pictures/')[i].split('_')[0]
+            split_sd = re.split('(\d+)', state_dist)
+            for j in range(len(split_sd)):
+                if j == 0:
+                    ## Letters is state short
+                    state_short = str(split_sd[j])
+                    district_info.loc[i, 'state_short'] = state_short
+                    state_long = str(us.states.lookup(state_short))
+                    district_info.loc[i, 'state_long'] = state_long
+                elif j == 1:
+                    ## Numbers is district number
+                    district_num = int(split_sd[j])
+                    district_info.loc[i, 'district_num'] = district_num
+                    
+        dist = district_info.reset_index(drop=True)
+
+        dist_query = ''
+        for i in range(len(dist)):
+            if i != 0:
+                dist_query += " OR (state = '{}' AND district ='{}')".format(
+                    dist.loc[i, 'state_long'], int(dist.loc[i, 'district_num']))
+            if i == 0:
+                dist_query += "(state = '{}' AND district ='{}')".format(
+                    dist.loc[i, 'state_long'], int(dist.loc[i, 'district_num']))
+
+
+        sql_query = """SELECT distinct name, bioguide_id, state, district, served_until, chamber
+        FROM congress_bio
+        WHERE (({})
+        AND served_until = 'Present')
+        OR (state = '{}' AND served_until = 'Present' AND chamber = 'senate')""".format(dist_query, dist.loc[i, 'state_long'],)
+        
+        return pd.read_sql_query(sql_query, open_connection())
     
     def __init__(self, email=None, password=None, password_match=False, first_name=None,
                 last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None,
