@@ -199,7 +199,7 @@ def attendance():
         try:
             ## Get attendance
             tally_toolkit.Performance.num_days_voted_house(rep_perfomance)
-            rep_perfomance.days_voted = rep_perfomance.days_voted[[  'days_at_work', 'percent_at_work', 'total_work_days']]
+            rep_perfomance.days_voted = rep_perfomance.days_voted[['days_at_work', 'percent_at_work', 'total_work_days']]
             return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
         except:
             ## If returns no data
@@ -289,6 +289,18 @@ def efficacy():
     except:
         ## If returns no data
         return jsonify(results=False)
+
+
+## Return list of reps for user to search
+@app.route("/list_reps", methods=["POST"])
+def list_reps():
+    user = tally_toolkit.user_info()
+    user.return_rep_list = 'Present'
+    x = tally_toolkit.user_info.list_reps(user)
+    return json.dumps(x)
+
+
+
 if __name__ == '__main__':
     ## app.run is to run with flask
     app.run(debug=True)

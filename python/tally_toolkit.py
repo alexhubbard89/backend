@@ -332,11 +332,17 @@ class user_info(object):
             rehashed = user_info.hash_password(self, version, salt)
             return rehashed == hashed
         return False
+
+    def list_reps(self):
+        x = pd.read_sql_query("""SELECT * FROM congress_bio
+        WHERE served_until = '{}';""".format(self.return_rep_list), open_connection())
+        
+        return list(np.unique(x['name']))
     
     def __init__(self, email=None, password=None, password_match=False, first_name=None,
                 last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None,
                 state_long=None, district=None, bioguide_id_to_search=None, chamber=None,
-                address_check=None):
+                address_check=None, return_rep_list=None):
         self.email = email
         self.password = password
         self.password_match = password_match
@@ -352,6 +358,7 @@ class user_info(object):
         self.bioguide_id_to_search = bioguide_id_to_search
         self.chamber = chamber
         self.address_check = address_check
+        self.return_rep_list = return_rep_list
 
 
 class vote_collector(object):
