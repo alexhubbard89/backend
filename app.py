@@ -199,7 +199,7 @@ def attendance():
         try:
             ## Get attendance
             tally_toolkit.Performance.num_days_voted_house(rep_perfomance)
-            rep_perfomance.days_voted = rep_perfomance.days_voted[[  'days_at_work', 'percent_at_work', 'total_work_days']]
+            rep_perfomance.days_voted = rep_perfomance.days_voted[['days_at_work', 'percent_at_work', 'total_work_days']]
             return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
         except:
             ## If returns no data
@@ -289,6 +289,34 @@ def efficacy():
     except:
         ## If returns no data
         return jsonify(results=False)
+
+
+## Return list of reps for user to search
+@app.route("/list_reps", methods=["POST"])
+def list_reps():
+    user = tally_toolkit.user_info()
+    user.return_rep_list = 'Present'
+    x = tally_toolkit.user_info.list_reps(user)
+    return jsonify(x.to_dict(orient='records'))
+
+## Return reps by zip code
+@app.route("/reps_by_zip", methods=["POST"])
+def reps_by_zip():
+    user = tally_toolkit.user_info()
+    try:
+        print 'trying first way'
+        data = json.loads(request.data.decode())
+        user.zip_code = tally_toolkit.sanitize(data['zip_code'])
+
+    except:
+        print 'trying second way'
+        user.zip_code = tally_toolkit.sanitize(request.form['zip_code'])
+    try:
+        x = tally_toolkit.user_info.find_dist_by_zip(user)
+        return jsonify(x.to_dict(orient='records'))
+    except:
+        return jsonify(results='Could not find zip code')
+
 if __name__ == '__main__':
     ## app.run is to run with flask
     app.run(debug=True)
