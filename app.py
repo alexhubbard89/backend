@@ -297,7 +297,7 @@ def list_reps():
     user = tally_toolkit.user_info()
     user.return_rep_list = 'Present'
     x = tally_toolkit.user_info.list_reps(user)
-    return jsonify(x.to_dict(orient='records')[0])
+    return jsonify(results=x.to_dict(orient='records'))
 
 ## Return reps by zip code
 @app.route("/reps_by_zip", methods=["POST"])
@@ -313,7 +313,7 @@ def reps_by_zip():
         user.zip_code = tally_toolkit.sanitize(request.form['zip_code'])
     try:
         x = tally_toolkit.user_info.find_dist_by_zip(user)
-        return jsonify(x.to_dict(orient='records')[0])
+        return jsonify(results=x.to_dict(orient='records'))
     except:
         return jsonify(results='Could not find zip code')
 
