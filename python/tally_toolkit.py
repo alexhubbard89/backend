@@ -337,7 +337,7 @@ class user_info(object):
         x = pd.read_sql_query("""SELECT * FROM congress_bio
         WHERE served_until = '{}';""".format(self.return_rep_list), open_connection())
         
-        return list(np.unique(x['name']))
+        return x[['name', 'bioguide_id', 'state', 'district', 'chamber']].drop_duplicates().reset_index(drop=True)
     
     def __init__(self, email=None, password=None, password_match=False, first_name=None,
                 last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None,

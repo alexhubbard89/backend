@@ -297,7 +297,7 @@ def list_reps():
     user = tally_toolkit.user_info()
     user.return_rep_list = 'Present'
     x = tally_toolkit.user_info.list_reps(user)
-    return json.dumps(x)
+    return jsonify(x.to_dict(orient='records'))
 
 
 
