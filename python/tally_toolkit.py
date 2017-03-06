@@ -1346,25 +1346,37 @@ class collect_legislation(object):
         page = BeautifulSoup(r.content, 'lxml')
         
         master_df = pd.DataFrame()
-        
-        ## Collect policy area
-        policy_area = page.find('div', class_='col2_sm').findAll('li')
-        policy_area_dict = {}
 
-        for i in range(len(policy_area)):
-            policy_area_dict.update({i: str(policy_area[i].text).strip()})
-            
-            
-        ## Collect subjects
-        legislative_subjects = page.find('div', class_='col2_lg').find('ul').findAll('li')
-        legislative_subjects_dict = {}
-
-        for i in range(len(legislative_subjects)):
-            legislative_subjects_dict.update({i: str(legislative_subjects[i].text).strip()})
+        if "page not found" in page.text.lower():
+            master_df = pd.DataFrame([[None], [None], [self.url]]).transpose()
+            master_df.columns = ['policy_area', 'legislative_subjects', 'issue_link']
         
-        ## Set array data to data set
-        master_df = pd.DataFrame([[policy_area_dict], [legislative_subjects_dict], [self.url]]).transpose()
-        master_df.columns = ['policy_area', 'legislative_subjects', 'issue_link']
+        else:
+            ## Collect policy area
+            policy_area = page.find('div', class_='col2_sm').findAll('li')
+            policy_area_dict = {}
+
+            for i in range(len(policy_area)):
+                policy_area_dict.update({i: str(policy_area[i].text).strip()})
+                
+                
+            ## Collect subjects
+            legislative_subjects = page.find('div', class_='col2_lg').find('ul').findAll('li')
+            legislative_subjects_dict = {}
+
+            for i in range(len(legislative_subjects)):
+                legislative_subjects_dict.update({i: str(legislative_subjects[i].text).strip()})
+            
+            ## Set array data to data set
+            master_df = pd.DataFrame([[policy_area_dict], [legislative_subjects_dict], [self.url]]).transpose()
+            master_df.columns = ['policy_area', 'legislative_subjects', 'issue_link']
+
+            ## Clean empty data
+            check_cols = ['policy_area', 'legislative_subjects']
+
+            for col in check_cols:
+                if master_df.loc[0, col] == {}:
+                    master_df.loc[0, col] = None
         
         return master_df
 
