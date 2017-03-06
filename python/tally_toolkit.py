@@ -1286,19 +1286,23 @@ class collect_legislation(object):
 
             for p in [x]:
                 format_str = """
-                INSERT INTO all_legislation (
+                INSERT INTO all_legislation_2 (
                 issue_link, 
                 issue, 
                 title_description,
                 committees,
                 tracker,
-                congress)
+                congress,
+                policy_area,
+                legislative_subjects)
                 VALUES ('{issue_link}', '{issue}', '{title_description}',
-                        '{committees}', '{tracker}', '{congress}');"""
+                        '{committees}', '{tracker}', '{congress}',
+                        '{policy_area}', '{legislative_subjects}');"""
 
 
             sql_command = format_str.format(issue_link=p[0], issue=p[1], title_description=p[2],
-                                           committees=p[3], tracker=p[4], congress=p[5])
+                                           committees=p[3], tracker=p[4], congress=p[5],
+                                           policy_area='collect', legislative_subjects='collect')
             ## Commit to sql
             try:
                 cursor.execute(sql_command)
@@ -1307,7 +1311,7 @@ class collect_legislation(object):
             except:
                 ## Update what I got
                 connection.rollback()
-                sql_command = """UPDATE all_legislation 
+                sql_command = """UPDATE all_legislation_2 
                 SET
                 issue = '{}',
                 title_description = '{}',
@@ -1329,13 +1333,65 @@ class collect_legislation(object):
         print 'Data put into sql - New: {}, Updated: {}'.format(new_data, updated_data)
         self.new_data = new_data
         self.updated_data = updated_data
+
+
+    def bill_subjects(self):    
+        ## url for bill text
+        headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36'
+            }
+            
+        ## url for bill 
+        r = requests.get(self.url + '/subjects', headers=headers)
+        page = BeautifulSoup(r.content, 'lxml')
+        
+        master_df = pd.DataFrame()
+        
+        ## Collect policy area
+        policy_area = page.find('div', class_='col2_sm').findAll('li')
+        policy_area_dict = {}
+
+        for i in range(len(policy_area)):
+            policy_area_dict.update({i: str(policy_area[i].text).strip()})
+            
+            
+        ## Collect subjects
+        legislative_subjects = page.find('div', class_='col2_lg').find('ul').findAll('li')
+        legislative_subjects_dict = {}
+
+        for i in range(len(legislative_subjects)):
+            legislative_subjects_dict.update({i: str(legislative_subjects[i].text).strip()})
+        
+        ## Set array data to data set
+        master_df = pd.DataFrame([[policy_area_dict], [legislative_subjects_dict], [self.url]]).transpose()
+        master_df.columns = ['policy_area', 'legislative_subjects', 'issue_link']
+        
+        return master_df
+
+    def policy_subjects_to_sql(self):
+        connection = open_connection()
+        cursor = connection.cursor()
+        for i in range(len(self.bill_subjects_df)):
+            sql_command = """UPDATE all_legislation_2 
+            SET
+            policy_area = '{}',
+            legislative_subjects = '{}'
+            WHERE (issue_link = '{}');""".format(
+            sanitize(self.bill_subjects_df.loc[i, 'policy_area']),
+            sanitize(self.bill_subjects_df.loc[i, 'legislative_subjects']),
+            sanitize(self.bill_subjects_df.loc[i, 'issue_link']))
+            cursor.execute(sql_command)
+            connection.commit()
+        connection.close()
         
     def __init__(self, legislation_by_congress=None, congress_search=None,
-                new_data=None, updated_data=None):
+                new_data=None, updated_data=None, url=None, bill_subjects_df=None):
         self.legislation_by_congress = legislation_by_congress
         self.congress_search = congress_search
         self.new_data = new_data
         self.updated_data = updated_data
+        self.url = url
+        self.bill_subjects_df = bill_subjects_df
 
 class user_votes(object):
     """
