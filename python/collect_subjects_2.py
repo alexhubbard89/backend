@@ -26,7 +26,7 @@ leg_collection = tally_toolkit.collect_legislation()
 get_data = pd.read_sql_query("""SELECT * FROM all_legislation_2;""", open_connection())
 
 for i in range(len(get_data)):
-    if i % 1000 == 0:
+    if i % 500 == 0:
         print 'collecting number {}'.format(i)
     try:
         leg_collection.url = get_data.loc[i, 'issue_link']
