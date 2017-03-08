@@ -23,7 +23,8 @@ def open_connection():
 
 leg_collection = tally_toolkit.collect_legislation()
 
-get_data = pd.read_sql_query("""SELECT * FROM all_legislation_2;""", open_connection())
+get_data = pd.read_sql_query("""SELECT * FROM all_legislation_2
+    where policy_area = 'collect';""", open_connection())
 
 for i in range(len(get_data)):
     if i % 500 == 0:
