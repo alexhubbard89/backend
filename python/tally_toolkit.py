@@ -1380,6 +1380,24 @@ class collect_legislation(object):
         
         return master_df
 
+    def subjects_to_collect(self):
+        """
+        THis method will be used to find the bills that
+        are missing subjects and policy areas.
+        """
+
+        self.bills_to_get_df = pd.read_sql_query("""SELECT * FROM all_legislation_2
+        where policy_area = 'collect';""", open_connection())
+
+        for i in range(len(self.bills_to_get_df)):
+            try:
+                self.url = self.bills_to_get_df.loc[i, 'issue_link']
+                self.bill_subjects_df = collect_legislation.bill_subjects(leg_collection)
+                collect_legislation.policy_subjects_to_sql(leg_collection)
+            except:
+                print "did not work:"
+                print leg_collection.url
+
     def policy_subjects_to_sql(self):
         connection = open_connection()
         cursor = connection.cursor()
@@ -1397,13 +1415,15 @@ class collect_legislation(object):
         connection.close()
         
     def __init__(self, legislation_by_congress=None, congress_search=None,
-                new_data=None, updated_data=None, url=None, bill_subjects_df=None):
+                new_data=None, updated_data=None, url=None, bill_subjects_df=None,
+                bills_to_get_df=None):
         self.legislation_by_congress = legislation_by_congress
         self.congress_search = congress_search
         self.new_data = new_data
         self.updated_data = updated_data
         self.url = url
         self.bill_subjects_df = bill_subjects_df
+        self.bills_to_get_df = bills_to_get_df
 
 class user_votes(object):
     """
