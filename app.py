@@ -317,6 +317,26 @@ def reps_by_zip():
     except:
         return jsonify(results='Could not find zip code')
 
+## Return reps by zip code
+@app.route("/membership_stats", methods=["POST"])
+def membership_stats():
+    rep_perfomance = tally_toolkit.Performance()
+    try:
+        data = json.loads(request.data.decode())
+        rep_perfomance.bioguide_id = data['bioguide_id']
+        rep_perfomance.chamber = data['chamber']
+    except:
+        rep_perfomance.bioguide_id = request.form['bioguide_id']
+        rep_perfomance.chamber = request.form['chamber']
+    try:
+        ## Get stats
+        tally_toolkit.Performance.membership_stats(rep_perfomance)
+        return jsonify(rep_perfomance.membership_stats_df.to_dict(orient='records')[0])
+    except:
+        ## If returns no data
+        return jsonify(results=False)
+
+
 if __name__ == '__main__':
     ## app.run is to run with flask
     app.run(debug=True)
