@@ -18,6 +18,7 @@ import us
 from unidecode import unidecode
 ## algo to summarize
 from gensim.summarization import summarize
+import ast
 
 try:    
     urlparse.uses_netloc.append("postgres")
@@ -1814,11 +1815,57 @@ class Performance(object):
         
         ## Save it homie
         self.membership_stats_df = df.loc[df['bioguide_id'] == self.bioguide_id].reset_index(drop=True)
+
+    def policy_areas(self):
+        
+        ## Query legilation rep made
+        df = pd.read_sql_query("""
+        SELECT * FROM bill_sponsors
+        WHERE bioguide_id = '{}'
+        AND url ilike '%' || '{}' || '%'
+        """.format(self.bioguide_id, self.congress_num), open_connection())
+
+        ## query the legislation the rep made
+        link_query = ''
+        counter = 0 
+
+        for url in df['url']:
+            if counter != 0:
+                link_query += " OR issue_link = '{}'".format(url)
+            elif counter == 0:
+                link_query += "WHERE issue_link = '{}'".format(url)
+            counter +=1
+
+        policy_areas = pd.read_sql_query("""
+        SELECT * FROM all_legislation_2
+        {};""".format(link_query), open_connection())
+        
+        ## Unpack the policy area
+        policy_area_list = []
+
+        for policy in policy_areas['policy_area']:
+            if policy == '{}':
+                policy_area_list.append('misc')
+            elif policy == 'None':
+                policy_area_list.append('misc')
+            else:
+                x = ast.literal_eval(policy)
+                for i in range(len(x)):
+                    policy_area_list.append(x[i])
+                
+        policy_area_df = pd.DataFrame(policy_area_list)
+        policy_area_df['count'] = 1
+        policy_area_df = policy_area_df.groupby([0]).count().reset_index(drop=False)
+        policy_area_df.columns = ['policy_area', 'count']
+        
+        policy_area_df['percent'] = policy_area_df['count']/policy_area_df['count'].sum()
+        
+        self.policy_area_df = policy_area_df[['policy_area', 'percent']]
     
     
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
                 rep_votes_metrics=None, rep_sponsor_metrics=None,
-                chamber=None, membership_stats_df=None):
+                chamber=None, membership_stats_df=None, policy_area_df=None):
         self.congress_num = congress_num
         self.bioguide_id = bioguide_id
         self.days_voted = days_voted
@@ -1826,6 +1873,7 @@ class Performance(object):
         self.rep_sponsor_metrics = rep_sponsor_metrics
         self.chamber = chamber
         self.membership_stats_df = membership_stats_df
+        self.policy_area_df = policy_area_df
 
 class Senate_colleciton(object):
     """
