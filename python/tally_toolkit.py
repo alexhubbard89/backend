@@ -1797,15 +1797,35 @@ class Performance(object):
                                    rep_sponsor_metrics['max_sponsor'])
         
         self.rep_sponsor_metrics = rep_sponsor_metrics
+
+    def membership_stats(self):
+        if self.chamber.lower() == 'house':
+            tbl = 'house_membership'
+        elif self.chamber.lower() == 'senate':
+            tbl = 'senate_membership'
+            
+        df = pd.read_sql_query("""
+        SELECT * FROM {}""".format(tbl), open_connection())
+        
+        df = df.groupby(['bioguide_id']).count()['committee'].reset_index(drop=False)
+        df.columns = ['bioguide_id', 'num_committees']
+        df['max_committees'] = df['num_committees'].max()
+        df['percent'] = (df['num_committees'] / df['max_committees'])
+        
+        ## Save it homie
+        self.membership_stats_df = df.loc[df['bioguide_id'] == self.bioguide_id].reset_index(drop=True)
     
     
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
-                rep_votes_metrics=None, rep_sponsor_metrics=None):
+                rep_votes_metrics=None, rep_sponsor_metrics=None,
+                chamber=None, membership_stats_df=None):
         self.congress_num = congress_num
         self.bioguide_id = bioguide_id
         self.days_voted = days_voted
         self.rep_votes_metrics = rep_votes_metrics
         self.rep_sponsor_metrics = rep_sponsor_metrics
+        self.chamber = chamber
+        self.membership_stats_df = membership_stats_df
 
 class Senate_colleciton(object):
     """
