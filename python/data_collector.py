@@ -71,6 +71,13 @@ except:
     bad_collection += """\n\tLegislation collector"""
 
 try:
+    leg_collection = tally_toolkit.collect_legislation()
+    tally_toolkit.collect_legislation.daily_subject_collection(leg_collection)
+    good_collection += """\n\tSubjects collector - New data: {}""".format(leg_collection.new_data)
+except:
+    bad_collection += """\n\tSubjects collector"""
+
+try:
     sponsorship_data = tally_toolkit.sponsorship_collection()
     sponsorship_data.congress_search = congress_data.current_congress
     tally_toolkit.sponsorship_collection.collect_sponsorship(sponsorship_data)

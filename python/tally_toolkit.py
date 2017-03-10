@@ -1287,7 +1287,7 @@ class collect_legislation(object):
 
             for p in [x]:
                 format_str = """
-                INSERT INTO all_legislation_2 (
+                INSERT INTO all_legislation (
                 issue_link, 
                 issue, 
                 title_description,
@@ -1312,7 +1312,7 @@ class collect_legislation(object):
             except:
                 ## Update what I got
                 connection.rollback()
-                sql_command = """UPDATE all_legislation_2 
+                sql_command = """UPDATE all_legislation 
                 SET
                 issue = '{}',
                 title_description = '{}',
@@ -1353,31 +1353,36 @@ class collect_legislation(object):
             master_df.columns = ['policy_area', 'legislative_subjects', 'issue_link']
         
         else:
-            ## Collect policy area
-            policy_area = page.find('div', class_='col2_sm').findAll('li')
-            policy_area_dict = {}
+            try:
+                ## Collect policy area
+                policy_area = page.find('div', class_='col2_sm').findAll('li')
+                policy_area_dict = {}
 
-            for i in range(len(policy_area)):
-                policy_area_dict.update({i: str(policy_area[i].text).strip()})
+                for i in range(len(policy_area)):
+                    policy_area_dict.update({i: str(policy_area[i].text).strip()})
+                    
+                    
+                ## Collect subjects
+                legislative_subjects = page.find('div', class_='col2_lg').find('ul').findAll('li')
+                legislative_subjects_dict = {}
+
+                for i in range(len(legislative_subjects)):
+                    legislative_subjects_dict.update({i: str(legislative_subjects[i].text).strip()})
                 
-                
-            ## Collect subjects
-            legislative_subjects = page.find('div', class_='col2_lg').find('ul').findAll('li')
-            legislative_subjects_dict = {}
+                ## Set array data to data set
+                master_df = pd.DataFrame([[policy_area_dict], [legislative_subjects_dict], [self.url]]).transpose()
+                master_df.columns = ['policy_area', 'legislative_subjects', 'issue_link']
 
-            for i in range(len(legislative_subjects)):
-                legislative_subjects_dict.update({i: str(legislative_subjects[i].text).strip()})
-            
-            ## Set array data to data set
-            master_df = pd.DataFrame([[policy_area_dict], [legislative_subjects_dict], [self.url]]).transpose()
-            master_df.columns = ['policy_area', 'legislative_subjects', 'issue_link']
+                ## Clean empty data
+                check_cols = ['policy_area', 'legislative_subjects']
 
-            ## Clean empty data
-            check_cols = ['policy_area', 'legislative_subjects']
-
-            for col in check_cols:
-                if master_df.loc[0, col] == {}:
-                    master_df.loc[0, col] = None
+                for col in check_cols:
+                    if master_df.loc[0, col] == {}:
+                        master_df.loc[0, col] = None
+            except:
+                "There's not data to collect"
+                master_df = pd.DataFrame([[None], [None], [self.url]]).transpose()
+                master_df.columns = ['policy_area', 'legislative_subjects', 'issue_link']
         
         return master_df
 
@@ -1387,7 +1392,7 @@ class collect_legislation(object):
         are missing subjects and policy areas.
         """
 
-        self.bills_to_get_df = pd.read_sql_query("""SELECT * FROM all_legislation_2
+        self.bills_to_get_df = pd.read_sql_query("""SELECT * FROM all_legislation
         where policy_area = 'collect';""", open_connection())
 
         for i in range(len(self.bills_to_get_df)):
@@ -1403,7 +1408,7 @@ class collect_legislation(object):
         connection = open_connection()
         cursor = connection.cursor()
         for i in range(len(self.bill_subjects_df)):
-            sql_command = """UPDATE all_legislation_2 
+            sql_command = """UPDATE all_legislation 
             SET
             policy_area = '{}',
             legislative_subjects = '{}'
@@ -1414,6 +1419,31 @@ class collect_legislation(object):
             cursor.execute(sql_command)
             connection.commit()
         connection.close()
+
+    def daily_subject_collection(self):
+        """
+        This method will be used to check if new bill come in
+        and collect the subjects and policy areas.
+        """
+
+        new_data = 0
+        get_data = pd.read_sql_query("""SELECT * FROM all_legislation_2
+            where policy_area = 'collect';""", open_connection())
+
+        for i in range(len(get_data)):
+            try:
+                self.url = get_data.loc[i, 'issue_link']
+                self.bill_subjects_df = collect_legislation.bill_subjects(self)
+                collect_legislation.policy_subjects_to_sql(self)
+                new_data += 1
+            except:
+                print "did not work: {}".format(i)
+                print self.url
+
+        print 'Data put into sql - New: {}'.format(new_data)
+        self.new_data = new_data
+
+
         
     def __init__(self, legislation_by_congress=None, congress_search=None,
                 new_data=None, updated_data=None, url=None, bill_subjects_df=None,
@@ -1837,17 +1867,15 @@ class Performance(object):
             counter +=1
 
         policy_areas = pd.read_sql_query("""
-        SELECT * FROM all_legislation_2
+        SELECT * FROM all_legislation
         {};""".format(link_query), open_connection())
         
         ## Unpack the policy area
         policy_area_list = []
 
         for policy in policy_areas['policy_area']:
-            if policy == '{}':
-                policy_area_list.append('misc')
-            elif policy == 'None':
-                policy_area_list.append('misc')
+            if policy == 'None':
+                policy_area_list.append('Misc.')
             else:
                 x = ast.literal_eval(policy)
                 for i in range(len(x)):
