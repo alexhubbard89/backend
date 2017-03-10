@@ -1427,7 +1427,7 @@ class collect_legislation(object):
         """
 
         new_data = 0
-        get_data = pd.read_sql_query("""SELECT * FROM all_legislation_2
+        get_data = pd.read_sql_query("""SELECT * FROM all_legislation
             where policy_area = 'collect';""", open_connection())
 
         for i in range(len(get_data)):
