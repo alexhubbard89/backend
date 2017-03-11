@@ -105,21 +105,25 @@ try:
 except:
     bad_collection += """\n\tSenate Votes"""
 
-print 'Classify ideology'
-try: 
-    ideology_data = tally_toolkit.Ideology()
-    ideology_data.ideology = 'women and minority rights'
-    tally_toolkit.Ideology.make_tally_ideology(ideology_data)
-    good_collection += """\n\tIdeology colection"""
-except:
-    bad_collection += """\n\tIdeology colection"""
+to_classify = ['women and minority rights', 'immigration']
 
-print 'Put ideology to sql'
-try:
-    tally_toolkit.Ideology.put_finalized_ideology_stats_into_sql(ideology_data)
-    good_collection += """\n\tIdeology classifier"""
-except:
-    bad_collection += """\n\tIdeology classifier"""
+for ideology_category in to_classify:
+    try: 
+        print 'Classify ideology - {}'.format(ideology_category)
+        ideology_data = tally_toolkit.Ideology()
+        ideology_data.ideology = ideology_category
+        tally_toolkit.Ideology.make_tally_ideology(ideology_data)
+        good_collection += """\n\tIdeology colection - {}""".format(ideology_category)
+        print 'Put ideology to sql - {}'.format(ideology_category)
+        try:
+            tally_toolkit.Ideology.put_finalized_ideology_stats_into_sql(ideology_data)
+            good_collection += """\n\tIdeology colection - {}""".format(ideology_category)
+        except:
+            bad_collection += """\n\tIdeology classifier - {}""".format(ideology_category)
+
+    except:
+        bad_collection += """\n\tIdeology colection - {}""".format(ideology_category)
+
 
 
 msg['Subject'] = "Data Collection Report"

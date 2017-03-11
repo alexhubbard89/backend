@@ -2618,11 +2618,14 @@ class Ideology(object):
     
     def update_predictive_legislation(self):
         
-        if self.ideology == 'women and minority rights':
+        if self.ideology.lower() == 'women and minority rights':
             df = pd.read_sql_query("""SELECT * FROM all_legislation
             WHERE lower(policy_area) ilike '%' || 'minority issues' || '%'
             OR lower(policy_area) ilike '%' || 'disabled' || '%'
             OR lower(policy_area) ilike '%' || 'women' || '%';""", open_connection())
+        elif self.ideology.lower() == 'immigration':
+            df = pd.read_sql_query("""SELECT * FROM all_legislation
+                WHERE lower(policy_area) ilike '%' || 'immigration' || '%';""", open_connection())
         else:
             print 'incorrect ideology'
             return
@@ -2681,7 +2684,7 @@ class Ideology(object):
                                        'result', 'title_description', 'congress', 'session','roll_id']]
         df.loc[:, 'predict_user_ideology'] = False
         df.loc[df['question'].str.lower() == 'on passage', 'predict_user_ideology'] = True
-        df.loc[:, 'ideology_to_predict'] = stuff.ideology
+        df.loc[:, 'ideology_to_predict'] = self.ideology
         
         
         """
