@@ -6,7 +6,7 @@ import imp
 collect_current_congress = imp.load_source('module', './python/collect_current_congress.py')
 tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
 
-# # For testing
+# # # For testing
 # collect_current_congress = imp.load_source('module', 'collect_current_congress.py')
 # tally_toolkit = imp.load_source('module', 'tally_toolkit.py')
 
@@ -104,6 +104,23 @@ try:
     good_collection += """\n\tSenate Votes"""
 except:
     bad_collection += """\n\tSenate Votes"""
+
+try: 
+print 'Classify ideology'
+    ideology_data = tally_toolkit.Ideology()
+    ideology_data.ideology = 'women and minority rights'
+    tally_toolkit.Ideology.make_tally_ideology(ideology_data)
+    good_collection += """\n\tIdeology colection"""
+except:
+    bad_collection += """\n\tIdeology colection"""
+
+print 'Put ideology to sql'
+try:
+    tally_toolkit.Ideology.put_finalized_ideology_stats_into_sql(ideology_data)
+    good_collection += """\n\tIdeology classifier"""
+except:
+    bad_collection += """\n\tIdeology classifier"""
+
 
 msg['Subject'] = "Data Collection Report"
 body_msg = """Data Collection Report
