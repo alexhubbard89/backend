@@ -105,8 +105,8 @@ try:
 except:
     bad_collection += """\n\tSenate Votes"""
 
-try: 
 print 'Classify ideology'
+try: 
     ideology_data = tally_toolkit.Ideology()
     ideology_data.ideology = 'women and minority rights'
     tally_toolkit.Ideology.make_tally_ideology(ideology_data)
