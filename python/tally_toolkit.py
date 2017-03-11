@@ -1524,7 +1524,7 @@ class user_votes(object):
 
         ## Remove columns that will have nulls from predictive table.
         ## Eventually add main subject. But not for now
-        self.leg_for_user = leg_for_user.drop(['bill_main_subject',
+        self.leg_for_user = leg_for_user.drop(['policy_area',
                                               'ideology_to_predict',
                                               'predict_user_ideology'], 1)
 
