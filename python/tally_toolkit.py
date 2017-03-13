@@ -1524,8 +1524,8 @@ class user_votes(object):
 
         ## Remove columns that will have nulls from predictive table.
         ## Eventually add main subject. But not for now
-        self.leg_for_user = leg_for_user.drop(['policy_area',
-                                              'ideology_to_predict',
+        print leg_for_user
+        self.leg_for_user = leg_for_user.drop(['ideology_to_predict',
                                               'predict_user_ideology'], 1)
 
     def summarize_bill(self):
@@ -2354,16 +2354,16 @@ class Ideology(object):
 
         ## Subset by ideology testing
         ideolog_df_subset = self.ideology_df.loc[self.ideology_df['ideology_type'] == 
-                                 self.ideology, ['bioguide_id', 'tally_ideology']]
+                                 self.ideology, ['bioguide_id', 'tally_score']]
 
         ## Add ideology to votes
-        test_scores = pd.merge(test_scores, ideolog_df_subset[['tally_ideology', 'bioguide_id']],
+        test_scores = pd.merge(test_scores, ideolog_df_subset[['tally_score', 'bioguide_id']],
                  how='left', on='bioguide_id')
 
         ## Convert numeric ideology to categorical
-        test_scores.loc[test_scores['tally_ideology'] < 0, 'ideology'] = 'l'
-        test_scores.loc[test_scores['tally_ideology'] > 0, 'ideology'] = 'c'
-        test_scores.loc[test_scores['tally_ideology'] == 0, 'ideology'] = 'n'
+        test_scores.loc[test_scores['tally_score'] < 0, 'ideology'] = 'l'
+        test_scores.loc[test_scores['tally_score'] > 0, 'ideology'] = 'c'
+        test_scores.loc[test_scores['tally_score'] == 0, 'ideology'] = 'n'
 
         ## Group categoritycal ideology and only look at actual votes
         x = test_scores.groupby(['ideology', 'vote']).count()['bioguide_id'].reset_index(drop=False)
@@ -2581,36 +2581,50 @@ class Ideology(object):
         total_votes_df.columns = ['bioguide_id', 'total_votes']
         ideology_stats_by_rep_sums = pd.merge(ideology_stats_by_rep_sums,total_votes_df,how='left', on='bioguide_id')
 
-        x = ideology_stats_by_rep_sums['ideology_prob']
-        ideology_stats_by_rep_sums.loc[:, 'weighted_ideology_percentile'] = [stats.percentileofscore(x, a, 'strict') for a in x]
-        
-        ## Normalizing the weighted ideologies
-        l_max = ideology_stats_by_rep_sums['weighted_ideology_percentile'].max()
-        l_min = ideology_stats_by_rep_sums['weighted_ideology_percentile'].min()
-        l_max_min = l_max - l_min
-        ideology_stats_by_rep_sums.loc[:, 'weighted_ideology_percentile'] = ideology_stats_by_rep_sums['weighted_ideology_percentile'].apply(lambda x: (x - l_min)/l_max_min)
-
-        tally_ideology = [-3, -2, -1, 0, 1, 2, 3]
-        percentil_grouping_array = np.array_split(np.arange(101.0), 7)
-
 
         """
-        divide precentile groups by 100 because the weighted
-        ideology percentile was normalized between 0 and 1.
+        In this section I'm going to normalize the mean to zero,
+        where the mean is the most neutral ideology_probabiity.
+        The most neutral is defined as the rep's (c_pro - l_prob) 
+        divided by total votes that's closest to zero. 
+
+        I'm then scaling the c_prob and l_prob by the number of
+        times the rep has voted. Someone who has voted more we can
+        assume their ideology better. 
+
+        Finally, I'm creating an ideolgy prob from the scaled probabilities
+        and normalizing them with a mean of 0, and putting them on a scale
+        of -3 to 3, liberal to conservative respectively.
+    
+
         """
-        for i in range(7):
-            if i < 6:
-                ideology_stats_by_rep_sums.loc[
-                    ((ideology_stats_by_rep_sums['weighted_ideology_percentile'] >= 
-                      percentil_grouping_array[i][0]/100) &
-                     (ideology_stats_by_rep_sums['weighted_ideology_percentile'] <= 
-                      percentil_grouping_array[i+1][0]/100)), 'tally_ideology'] = tally_ideology[i] 
-            else:
-                ideology_stats_by_rep_sums.loc[
-                    ((ideology_stats_by_rep_sums['weighted_ideology_percentile'] >= 
-                      percentil_grouping_array[i][0]/100) &
-                     (ideology_stats_by_rep_sums['weighted_ideology_percentile'] <= 
-                      percentil_grouping_array[i][-1]/100)), 'tally_ideology'] = tally_ideology[i]  
+
+
+        ideology_stats_by_rep_sums.loc[:, 'most_neutral'] = abs(ideology_stats_by_rep_sums['ideology_prob']/
+            ideology_stats_by_rep_sums['total_votes'])
+        ideology_stats_by_rep_sums.loc[:, 'c_prob_x'] = (ideology_stats_by_rep_sums.loc[:, 'c_prob'] * 
+            ideology_stats_by_rep_sums.loc[:, 'total_votes'])
+        ideology_stats_by_rep_sums.loc[:, 'l_prob_x'] = (ideology_stats_by_rep_sums.loc[:, 'l_prob'] * 
+            ideology_stats_by_rep_sums.loc[:, 'total_votes'])
+        ideology_stats_by_rep_sums.loc[:, 'ideology_prob_x'] = (ideology_stats_by_rep_sums.loc[:, 'c_prob_x'] - 
+            ideology_stats_by_rep_sums.loc[:, 'l_prob_x'])
+
+
+        ## Assign z-scores
+        ## call it "ideology_prob_x_zero_mean"
+        mew = float(ideology_stats_by_rep_sums.loc[
+            ideology_stats_by_rep_sums['most_neutral'] == 
+            ideology_stats_by_rep_sums['most_neutral'].min(), 'ideology_prob_x'])
+        standard_d = np.std(ideology_stats_by_rep_sums['ideology_prob_x'])
+        ideology_stats_by_rep_sums.loc[:, 'ideology_prob_x_zero_mean'] = ideology_stats_by_rep_sums.loc[:, 'ideology_prob_x'].apply(lambda x: (x - mew)/standard_d)
+
+        ## Stretch z-scores to be between -3 and 3
+        f_max = ideology_stats_by_rep_sums['ideology_prob_x_zero_mean'].max()
+        f_min = ideology_stats_by_rep_sums['ideology_prob_x_zero_mean'].min()
+        f_bar = ((f_max + f_min)/2)
+        A = (2/(f_max - f_min))
+        ideology_stats_by_rep_sums.loc[:, 'tally_score'] = ideology_stats_by_rep_sums.loc[:, 'ideology_prob_x_zero_mean'].apply(lambda x: round(A*(x - f_bar), 4) * 3)
+
 
         ideology_stats_by_rep_sums['ideology_type'] = self.ideology
         self.ideology_stats_by_rep_sums = ideology_stats_by_rep_sums
@@ -2626,6 +2640,24 @@ class Ideology(object):
         elif self.ideology.lower() == 'immigration':
             df = pd.read_sql_query("""SELECT * FROM all_legislation
                 WHERE lower(policy_area) ilike '%' || 'immigration' || '%';""", open_connection())
+        elif self.ideology.lower() == 'abortion':
+            df = pd.read_sql_query("""SELECT * FROM all_legislation
+                WHERE lower(policy_area) ilike '%' || 'abortion' || '%'
+                OR (lower(title_description) ilike '%' || 'abortion' || '%'
+                AND lower(policy_area) ilike '%' || 'health' || '%')
+                OR (lower(title_description) ilike '%' || 'abortion' || '%') 
+                OR (lower(title_description) ilike '%' || 'born-alive' || '%')
+                OR (lower(title_description) ilike '%' || 'unborn child' || '%')
+                OR (lower(title_description) ilike '%' || ' reproductive' || '%')
+                OR (lower(title_description) ilike '%' || 'planned parenthood' || '%');""", open_connection())
+        elif self.ideology.lower() == 'environmental protection':
+            df = pd.read_sql_query("""SELECT * FROM all_legislation
+                WHERE lower(policy_area) ilike '%' || 'environmental protection' || '%';""", open_connection())
+        elif self.ideology.lower() == 'second amendment':
+            df = pd.read_sql_query("""SELECT * FROM all_legislation
+                        WHERE lower(title_description) ilike '%' || 'second amendment' || '%'
+                        OR lower(title_description) ilike '%' || 'gun' || '%'
+                        OR lower(title_description) ilike '%' || 'firearm' || '%';""", open_connection())
         else:
             print 'incorrect ideology'
             return
@@ -2648,15 +2680,27 @@ class Ideology(object):
         df = pd.read_sql_query(sql_query, open_connection())
 
         ## Query the roll call votes
-        sql_query = 'SELECT * FROM house_votes_tbl'
-        counter = 0
-        for roll_id in df['roll_id']:
-            if counter != 0:
-                sql_query += " OR roll_id = '{}'".format(roll_id)
-            elif counter == 0:
-                sql_query += " WHERE roll_id = '{}'".format(roll_id)
-            counter += 1
-        sql_query += ';'
+        ## If there are a lot of bills it goes slow
+        ## Query in batches
+
+        predictive_bills_votes = pd.DataFrame()
+        for i in range(0, len(df), 5):
+            sql_query = 'SELECT * FROM house_votes_tbl'
+            for j in range(i, i+5):
+                if j != i:
+                    try:
+                        sql_query += " OR roll_id = {}".format(df.loc[j, 'roll_id'])
+                    except:
+                        "doesn't go that high"
+                elif j == i:
+                    sql_query += " WHERE roll_id = {}".format(df.loc[j, 'roll_id'])
+            sql_query += ";"
+            
+            x = pd.read_sql_query(sql_query, open_connection())
+            predictive_bills_votes = predictive_bills_votes.append(x)
+            
+        predictive_bills_votes = predictive_bills_votes.reset_index(drop=True)
+
         self.predictive_bills_votes = pd.read_sql_query(sql_query, open_connection())
 
         ## Grab the ideology stats
@@ -2771,7 +2815,7 @@ class Ideology(object):
                 connection.commit()
         connection.close()
         
-    def make_tally_ideology(self):
+    def make_tally_score(self):
         """
         This method will be used to do all the
         work to make ideologies. After this method
@@ -2807,43 +2851,59 @@ class Ideology(object):
                 INSERT INTO representatives_ideology_stats (
                 bioguide_id, 
                 c_prob, 
-                l_prob,
-                ideology_prob, 
+                l_prob, 
+                ideology_prob,
                 total_votes,
-                weighted_ideology_percentile,
-                tally_ideology, 
+                most_neutral,
+                c_prob_x,
+                l_prob_x,
+                ideology_prob_x,
+                ideology_prob_x_zero_mean,
+                tally_score, 
                 ideology_type)
                 VALUES ('{bioguide_id}', '{c_prob}', '{l_prob}', '{ideology_prob}',
-                 '{total_votes}', '{weighted_ideology_percentile}', '{tally_ideology}', '{ideology_type}');"""
+                 '{total_votes}', '{most_neutral}', '{c_prob_x}', '{l_prob_x}', 
+                 '{ideology_prob_x}', '{ideology_prob_x_zero_mean}',
+                  '{tally_score}', '{ideology_type}');"""
 
 
                 sql_command = format_str.format(bioguide_id=p[0], c_prob=p[1], 
-                    l_prob=p[2], ideology_prob=p[3], total_votes=p[4], weighted_ideology_percentile=p[5], 
-                    tally_ideology=p[6], ideology_type=p[7])
+                    l_prob=p[2], ideology_prob=p[3], total_votes=p[4], most_neutral=p[5],
+                    c_prob_x=p[6], l_prob_x =p[7], ideology_prob_x=p[8],
+                    ideology_prob_x_zero_mean=p[9], tally_score=p[10], ideology_type=p[11])
 
                 try:
-                    ## Try to insert, if it can't inset then it should update
+                    # Try to insert, if it can't inset then it should update
                     cursor.execute(sql_command)
                     connection.commit()
                 except:
                     connection.rollback()
                     ## If the update breaks then something is wrong
                     sql_command = """UPDATE representatives_ideology_stats 
-                    SET c_prob = {},
+                    SET  
+                    c_prob = {},
                     l_prob = {},
                     ideology_prob = {},
                     total_votes = {},
-                    weighted_ideology_percentile = {},
-                    tally_ideology = {}
+                    most_neutral = {},
+                    c_prob_x = {},
+                    l_prob_x = {},
+                    ideology_prob_x = {},
+                    ideology_prob_x_zero_mean = {},
+                    tally_score = {}
                     where (bioguide_id = '{}' AND ideology_type = '{}');""".format(
                     self.ideology_stats_by_rep_sums.loc[i, 'c_prob'],
                     self.ideology_stats_by_rep_sums.loc[i, 'l_prob'],
                     self.ideology_stats_by_rep_sums.loc[i, 'ideology_prob'],
                     self.ideology_stats_by_rep_sums.loc[i, 'total_votes'],
-                    self.ideology_stats_by_rep_sums.loc[i, 'weighted_ideology_percentile'],
-                    self.ideology_stats_by_rep_sums.loc[i, 'tally_ideology'],
+                    self.ideology_stats_by_rep_sums.loc[i, 'most_neutral'],
+                    self.ideology_stats_by_rep_sums.loc[i, 'c_prob_x'],
+                    self.ideology_stats_by_rep_sums.loc[i, 'l_prob_x'],
+                    self.ideology_stats_by_rep_sums.loc[i, 'ideology_prob_x'],
+                    self.ideology_stats_by_rep_sums.loc[i, 'ideology_prob_x_zero_mean'],
+                    self.ideology_stats_by_rep_sums.loc[i, 'tally_score'],
                     self.ideology_stats_by_rep_sums.loc[i, 'bioguide_id'],
-                    self.ideology_stats_by_rep_sums.loc[i, 'ideology_type'])
+                    self.ideology_stats_by_rep_sums.loc[i, 'ideology_type'],)
 
                     cursor.execute(sql_command)
                     connection.commit()
