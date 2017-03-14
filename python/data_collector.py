@@ -112,7 +112,7 @@ for ideology_category in to_classify:
     print 'Classify ideology - {}'.format(ideology_category)
     ideology_data = tally_toolkit.Ideology()
     ideology_data.ideology = ideology_category
-    tally_toolkit.Ideology.make_tally_ideology(ideology_data)
+    tally_toolkit.Ideology.make_tally_score(ideology_data)
     good_collection += """\n\tIdeology collection - {}""".format(ideology_category)
     print 'Put ideology to sql - {}'.format(ideology_category)
     # try:
