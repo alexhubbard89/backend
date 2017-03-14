@@ -330,8 +330,8 @@ def efficacy():
         return jsonify(results=False)
 
 ## Return all attendance
-@app.route("/efficacy_participation", methods=["POST"])
-def efficacy_participation():
+@app.route("/rank_efficacy", methods=["POST"])
+def rank_efficacy():
     rep_perfomance = tally_toolkit.Performance()
     tally_toolkit.Performance.current_congress_num(rep_perfomance)
     try:
