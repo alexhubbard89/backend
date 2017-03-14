@@ -268,6 +268,11 @@ class bio_data_collector(object):
     def update_sql(self):
         connection = open_connection()
         cursor = connection.cursor()
+
+
+        self.overall_df = self.overall_df[['name', 'state', 'district', 'party', 'served_until', 'photo_url',
+        'congress_url', 'bioguide_id', 'chamber', 'year_elected']] 
+                        
         for i in range(len(self.overall_df)):
             try:
                 self.overall_df.loc[i, 'name'] = self.overall_df.loc[i, 'name'].replace("'", "''")
