@@ -275,6 +275,8 @@ class bio_data_collector(object):
                 'hold'
             try:
                 self.overall_df.loc[i, 'name'] = str(self.overall_df.loc[i, 'name'].decode('unicode_escape').encode('ascii','ignore'))
+            except:
+                'hold'
             try:
                 ## Update what I got
                 sql_command = """UPDATE congress_bio 
