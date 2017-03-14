@@ -2678,7 +2678,7 @@ class Ideology(object):
         ## call it "ideology_prob_x_zero_mean"
         mew = float(ideology_stats_by_rep_sums.loc[
             ideology_stats_by_rep_sums['most_neutral'] == 
-            ideology_stats_by_rep_sums['most_neutral'].min(), 'ideology_prob_x'])
+            ideology_stats_by_rep_sums['most_neutral'].min(), 'ideology_prob_x'].reset_index(drop=True)[0])
         standard_d = np.std(ideology_stats_by_rep_sums['ideology_prob_x'])
         ideology_stats_by_rep_sums.loc[:, 'ideology_prob_x_zero_mean'] = ideology_stats_by_rep_sums.loc[:, 'ideology_prob_x'].apply(lambda x: (x - mew)/standard_d)
 
