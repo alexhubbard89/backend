@@ -216,6 +216,26 @@ def attendance():
     else:
         return jsonify(results='check the chamber')
 
+## Return all attendance
+@app.route("/rank_attendance", methods=["POST"])
+def rank_attendance():
+    rep_perfomance = tally_toolkit.Performance()
+    tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    try:
+        data = json.loads(request.data.decode())
+        rep_perfomance.chamber = data['chamber']
+    except:
+        rep_perfomance.chamber = request.form['chamber']
+
+    ## Get data
+    tally_toolkit.Performance.num_days_voted_all(rep_perfomance)
+    try:
+        return jsonify(results=rep_perfomance.days_voted.to_dict(orient='records'))
+    except:
+        ## If returns no data
+        return jsonify(results=False)
+
+
 ## Find number of votes cast
 @app.route("/participation", methods=["POST"])
 def participation():
@@ -354,6 +374,7 @@ def policy_areas():
     except:
         ## If returns no data
         return jsonify(results=False)
+
 
 if __name__ == '__main__':
     ## app.run is to run with flask

@@ -21,7 +21,6 @@ from gensim.summarization import summarize
 import ast
 from scipy import stats
 
-# try:    
 urlparse.uses_netloc.append("postgres")
 url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
     
@@ -35,19 +34,6 @@ def open_connection():
         )
     return connection
 
-# except:
-#     urlparse.uses_netloc.append("postgres")
-#     creds = pd.read_json('/Users/Alexanderhubbard/Documents/projects/reps_app/app/db_creds.json').loc[0,'creds']
-
-#     def open_connection():
-#         connection = psycopg2.connect(
-#             database=creds['database'],
-#             user=creds['user'],
-#             password=creds['password'],
-#             host=creds['host'],
-#             port=creds['port']
-#             )
-#         return connection
 
 """Function to sanitize user input.
 This would be too much to put into a class"""
@@ -1890,6 +1876,84 @@ class Performance(object):
         policy_area_df['percent'] = policy_area_df['count']/policy_area_df['count'].sum()
         
         self.policy_area_df = policy_area_df[['policy_area', 'percent']]
+
+    def num_days_voted_all(self):
+        
+        if self.chamber.lower() == 'house':
+            days_voted = pd.read_sql_query("""
+            SELECT * FROM (
+            SELECT distinct_votes.bioguide_id as b_id, 
+            count(distinct_votes.bioguide_id) as days_at_work
+            FROM (
+            SELECT DISTINCT bioguide_id, date
+            FROM house_votes_tbl
+            where congress = {}
+            AND vote != 'Not Voting')
+            as distinct_votes
+            GROUP BY bioguide_id)
+            AS days_votes
+            LEFT JOIN congress_bio 
+            ON congress_bio.bioguide_id = days_votes.b_id;
+            """.format(self.congress_num), open_connection())
+
+            # LEFT JOIN congress_bio 
+            # ON congress_bio.bioguide_id = days_voted.b_id
+
+            vote_dates = pd.read_sql_query("""
+            SELECT COUNT(DISTINCT(date)) as total_work_days 
+            FROM house_votes_tbl 
+            WHERE congress = {};
+            """.format(self.congress_num),open_connection())
+            
+            
+        elif self.chamber.lower() == 'senate':
+            days_voted = pd.read_sql_query("""
+            SELECT distinct_votes.last_name,
+            distinct_votes.state,
+            COUNT(distinct_votes.last_name) as days_at_work
+            FROM (SELECT DISTINCT last_name, 
+            date, state
+            FROM senator_votes_tbl
+            WHERE congress = {}
+            AND vote_cast != 'Not Voting')
+            AS distinct_votes
+            GROUP BY last_name, state;""".format(
+                    self.congress_num),open_connection())
+
+            days_voted['state'] = days_voted['state'].apply(lambda x: str(us.states.lookup(x)))
+
+            vote_dates = pd.read_sql_query("""
+                SELECT COUNT(DISTINCT(date)) as total_work_days 
+                FROM senator_votes_tbl 
+                WHERE congress = {};""".format(
+                    self.congress_num), open_connection())
+
+            find_senator = pd.read_sql("""
+            SELECT DISTINCT name,
+            bioguide_id,
+            state, district,
+            party,
+            photo_url
+            FROM congress_bio 
+            WHERE chamber = 'senate';""", open_connection())
+
+            find_senator['last_name'] = find_senator['name'].apply(lambda x: x.split(',')[0])
+            days_voted = pd.merge(days_voted, find_senator, how='left', on=['state', 'last_name'])
+
+        ## Get percent
+        days_voted.loc[:, 'total_work_days'] = vote_dates.loc[0, 'total_work_days']
+        days_voted['percent_at_work'] = (days_voted['days_at_work']/
+                                         days_voted['total_work_days'])
+
+        ## Subset columns, sort, and remove dupes
+        days_voted = days_voted[['bioguide_id', 'days_at_work', 'percent_at_work', 
+                                 'name', 'state', 'district', 'party', 
+                                 'photo_url']].sort_values(['percent_at_work', 'bioguide_id'],
+                                                           ascending=[False,True]).drop_duplicates(['bioguide_id']).reset_index(drop=True)
+        
+        ## Add rank
+        days_voted.loc[:, 'rank'] = days_voted['percent_at_work'].rank(method='min', ascending=False)
+        self.days_voted = days_voted
     
     
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
