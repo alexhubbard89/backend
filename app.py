@@ -329,6 +329,25 @@ def efficacy():
         ## If returns no data
         return jsonify(results=False)
 
+## Return all attendance
+@app.route("/efficacy_participation", methods=["POST"])
+def efficacy_participation():
+    rep_perfomance = tally_toolkit.Performance()
+    tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    try:
+        data = json.loads(request.data.decode())
+        rep_perfomance.chamber = data['chamber']
+    except:
+        rep_perfomance.chamber = request.form['chamber']
+
+    ## Get data
+    tally_toolkit.Performance.num_sponsored_all(rep_perfomance)
+    try:
+        return jsonify(results=rep_perfomance.rep_sponsor_metrics.to_dict(orient='records'))
+    except:
+        ## If returns no data
+        return jsonify(results=False)
+
 
 ## Return list of reps for user to search
 @app.route("/list_reps", methods=["POST"])

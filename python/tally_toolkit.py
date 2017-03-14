@@ -2033,13 +2033,73 @@ class Performance(object):
         ## Subset columns, sort, and remove dupes
         rep_votes = rep_votes[['bioguide_id', 'rep_votes', 'percent_votes', 
                                'total_votes', 'name', 'state', 'district', 'party', 
-                                 'photo_url']].sort_values(['percent_votes'],
-                                                           ascending=False).drop_duplicates(['bioguide_id']).reset_index(drop=True)
+                                 'photo_url']].sort_values(['percent_votes', 'bioguide_id'],
+                                                           ascending=[False,True]).drop_duplicates(['bioguide_id']).reset_index(drop=True)
 
         ## Clean and rank
         rep_votes = rep_votes.loc[rep_votes['bioguide_id'].notnull()].reset_index(drop=True)
         rep_votes.loc[:, 'rank'] = rep_votes['percent_votes'].rank(method='min', ascending=False)
         self.rep_votes_metrics = rep_votes
+
+    def num_sponsored_all(self):
+        """
+        This method will be used to find the
+        total legislation a rep has sponsored
+        and compare it to the maximum that
+        all reps have sponsored for this congress.
+        """
+
+
+        all_sponsored = pd.read_sql_query("""
+            SELECT * FROM
+            (
+            SELECT 
+            bioguide_id as b_id,
+            count(bioguide_id) as rep_sponsor
+            FROM(
+            SELECT * FROM
+            (
+            SELECT issue_link, congress
+            FROM all_legislation
+            WHERE cast(congress as int) = {})
+            AS this_congress
+            LEFT JOIN bill_sponsors
+            ON this_congress.issue_link = bill_sponsors.url
+            WHERE bioguide_id != 'None')
+            joined_leg
+            GROUP BY joined_leg.bioguide_id)
+            AS all_sponsor
+            LEFT JOIN (
+            SELECT name,
+            bioguide_id,
+            state, district,
+            party,
+            photo_url,
+            chamber
+            FROM congress_bio 
+            WHERE served_until = 'Present'
+            ) AS c_bio
+            ON all_sponsor.b_id = c_bio.bioguide_id
+            """.format(self.congress_num), open_connection())
+
+        all_sponsored = all_sponsored.sort_values(['rep_sponsor', 'bioguide_id'], 
+                                  ascending=[False, True]).reset_index(drop=True)
+
+        all_sponsored['max_sponsor'] = all_sponsored['rep_sponsor'].max()
+        all_sponsored['sponsor_percent'] = (all_sponsored['rep_sponsor']/all_sponsored['max_sponsor'])
+        
+        all_sponsored = all_sponsored.loc[all_sponsored['chamber'].str.lower() == self.chamber.lower()]
+
+        all_sponsored = all_sponsored[['bioguide_id', 'rep_sponsor', 'sponsor_percent', 
+                                 'max_sponsor', 'name', 'state', 'district', 'party', 
+                                 'photo_url']].sort_values(['sponsor_percent', 'bioguide_id'],
+                                                           ascending=[False,True]).drop_duplicates(['bioguide_id']).reset_index(drop=True)
+        ## Clean and rank
+        all_sponsored = all_sponsored.loc[all_sponsored['bioguide_id'].notnull()].reset_index(drop=True)
+        all_sponsored.loc[:, 'rank'] = all_sponsored['sponsor_percent'].rank(method='min', ascending=False)
+
+        self.rep_sponsor_metrics = all_sponsored
+
     
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
                 rep_votes_metrics=None, rep_sponsor_metrics=None,
