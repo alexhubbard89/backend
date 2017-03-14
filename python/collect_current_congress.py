@@ -265,6 +265,48 @@ class bio_data_collector(object):
                 self.overall_df.loc[websites_search[i], 'twitter_url'] = None
                 self.overall_df.loc[websites_search[i], 'facebook'] = None
                 
+    def update_sql(self):
+        connection = open_connection()
+        cursor = connection.cursor()
+        for i in range(len(self.overall_df)):
+            try:
+                self.overall_df.loc[i, 'name'] = self.overall_df.loc[i, 'name'].replace("'", "''")
+            except:
+                'hold'
+            try:
+                self.overall_df.loc[i, 'name'] = str(self.overall_df.loc[i, 'name'].decode('unicode_escape').encode('ascii','ignore'))
+            try:
+                ## Update what I got
+                sql_command = """UPDATE congress_bio 
+                SET
+                name = '{}',
+                state = '{}',
+                district = '{}',
+                party = '{}',
+                served_until = '{}',
+                photo_url = '{}',
+                congress_url = '{}', 
+                WHERE (
+                bioguide_id = '{}' 
+                and chamber = '{}'
+                and year_elected = '{}');""".format(
+                self.overall_df.loc[i, 'name'],
+                self.overall_df.loc[i, 'state'],
+                int(self.overall_df.loc[i, 'district']),
+                self.overall_df.loc[i, 'party'],
+                self.overall_df.loc[i, 'served_until'],
+                self.overall_df.loc[i, 'photo_url'],
+                self.overall_df.loc[i, 'congress_url'],
+                self.overall_df.loc[i, 'bioguide_id'],
+                self.overall_df.loc[i, 'chamber'],
+                int(self.overall_df.loc[i, 'year_elected']))    
+                cursor.execute(sql_command)
+                connection.commit()
+            except:
+                print '{} - {} had a problem'.format(i, self.overall_df.loc[i, 'name'])
+                connection.rollback()
+        # Close
+        connection.close()
 
 
     def put_into_sql_congress(self):
@@ -273,7 +315,6 @@ class bio_data_collector(object):
 
         ## Put data into table
         for i in range(len(self.overall_df)):
-            print i
             try:
                 self.overall_df.loc[i, 'bio_text'] = self.overall_df.loc[i, 'bio_text'].replace("'", "''")
             except:
@@ -431,6 +472,8 @@ class bio_data_collector(object):
             print 'should I keep scraping? {}'.format(self.collect_all)
             if self.collect_all == False:
                 print 'I have the most up to date data!'
+                print 'update database'
+                bio_data_collector.update_sql(self)
                 return 'No New Data was collected'
             elif self.collect_all == True:
                 ## If it's not up to date then collect data to replace current congress
