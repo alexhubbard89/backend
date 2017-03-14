@@ -1012,6 +1012,16 @@ class sponsorship_collection(object):
     New data - How many new data points were added
     Updated data - How many data poins were updated
     """
+
+    def current_congress_num(self):
+        """
+        This method will be used to find the
+        maximum congresss number. The max
+        congress will be the current congress.
+        """
+        
+        cong_num = pd.read_sql_query("""select max(congress) from house_vote_menu;""",open_connection())
+        self.congress_search = cong_num.loc[0, 'max']
     
     def get_sponsor_data(self):
         """
@@ -1125,21 +1135,25 @@ class sponsorship_collection(object):
             except:
                 ## Update what I got
                 connection.rollback()
-                sql_command = """UPDATE bill_sponsors 
-                SET
-                bioguide_id = '{}',
-                cosponsor_bioguide_id = '{}',
-                cosponsor_member_full = '{}',
-                date_cosponsored = '{}'
-                WHERE url = '{}';""".format(
-                self.master_sponsors.loc[i, 'bioguide_id'],
-                self.master_sponsors.loc[i, 'cosponsor_bioguide_id'],
-                self.master_sponsors.loc[i, 'cosponsor_member_full'],
-                self.master_sponsors.loc[i, 'date_cosponsored'],
-                self.master_sponsors.loc[i, 'url'])    
-                cursor.execute(sql_command)
-                connection.commit()
-                updated_data += 1
+                if ((self.master_sponsors.loc[i, 'bioguide_id'] != None) |
+                    (self.master_sponsors.loc[i, 'bioguide_id'] != 'None')):
+                    sql_command = """UPDATE bill_sponsors 
+                    SET
+                    bioguide_id = '{}',
+                    cosponsor_bioguide_id = '{}',
+                    cosponsor_member_full = '{}',
+                    date_cosponsored = '{}'
+                    WHERE url = '{}';""".format(
+                    self.master_sponsors.loc[i, 'bioguide_id'],
+                    self.master_sponsors.loc[i, 'cosponsor_bioguide_id'],
+                    self.master_sponsors.loc[i, 'cosponsor_member_full'],
+                    self.master_sponsors.loc[i, 'date_cosponsored'],
+                    self.master_sponsors.loc[i, 'url'])    
+                    cursor.execute(sql_command)
+                    connection.commit()
+                    updated_data += 1
+                else:
+                    print '{} had no sponsor.'.format(self.master_sponsors.loc[i, 'url'])
 
         connection.close()
         self.new_data = new_data
@@ -1789,32 +1803,35 @@ class Performance(object):
         and compare it to the maximum that
         all reps have sponsored for this congress.
         """
+
+
+        all_sponsored = pd.read_sql_query("""
+            SELECT 
+            bioguide_id,
+            count(bioguide_id) as rep_sponsor
+            FROM(
+            SELECT * FROM
+            (
+            SELECT issue_link, congress
+            FROM all_legislation
+            WHERE cast(congress as int) = {})
+            AS this_congress
+            LEFT JOIN bill_sponsors
+            ON this_congress.issue_link = bill_sponsors.url
+            WHERE bioguide_id != 'None')
+            joined_leg
+            GROUP BY joined_leg.bioguide_id
+            """.format(self.congress_num), open_connection())
         
-        rep_sponsor = pd.read_sql_query("""
-        SELECT url, bioguide_id 
-        FROM bill_sponsors 
-        WHERE bioguide_id = '{}'
-        AND url ilike '%' || '{}' || '%';""".format(
-                self.bioguide_id,
-                self.congress_num), open_connection())
+        all_sponsored = all_sponsored.sort_values(['rep_sponsor', 'bioguide_id'], 
+                                  ascending=[False, True]).reset_index(drop=True)
+
+        all_sponsored['max_sponsor'] = all_sponsored['rep_sponsor'].max()
+        all_sponsored['sponsor_percent'] = (all_sponsored['rep_sponsor']/all_sponsored['max_sponsor'])
+
+        all_sponsored = all_sponsored.loc[all_sponsored['bioguide_id'] == self.bioguide_id].reset_index(drop=True)
         
-        max_sponsor = pd.read_sql_query("""
-        SELECT MAX(sponsors.count)
-        FROM(
-        SELECT bioguide_id, COUNT(bioguide_id)
-        FROM bill_sponsors 
-        WHERE url ilike '%' || '{}' || '%'
-        GROUP BY bioguide_id) AS sponsors
-        ;""".format(self.congress_num), open_connection())
-        
-        rep_sponsor_metrics = pd.DataFrame([self.bioguide_id],
-                                        columns=['bioguide_id'])
-        rep_sponsor_metrics['rep_sponsor'] = len(rep_sponsor)
-        rep_sponsor_metrics['max_sponsor'] = max_sponsor.loc[0, 'max']
-        rep_sponsor_metrics['sponsor_percent'] = (rep_sponsor_metrics['rep_sponsor']/
-                                   rep_sponsor_metrics['max_sponsor'])
-        
-        self.rep_sponsor_metrics = rep_sponsor_metrics
+        self.rep_sponsor_metrics = all_sponsored
 
     def membership_stats(self):
         if self.chamber.lower() == 'house':
@@ -1834,29 +1851,20 @@ class Performance(object):
         self.membership_stats_df = df.loc[df['bioguide_id'] == self.bioguide_id].reset_index(drop=True)
 
     def policy_areas(self):
-        
+
         ## Query legilation rep made
-        df = pd.read_sql_query("""
-        SELECT * FROM bill_sponsors
-        WHERE bioguide_id = '{}'
-        AND url ilike '%' || '{}' || '%'
-        """.format(self.bioguide_id, self.congress_num), open_connection())
-
-        ## query the legislation the rep made
-        link_query = ''
-        counter = 0 
-
-        for url in df['url']:
-            if counter != 0:
-                link_query += " OR issue_link = '{}'".format(url)
-            elif counter == 0:
-                link_query += "WHERE issue_link = '{}'".format(url)
-            counter +=1
-
         policy_areas = pd.read_sql_query("""
-        SELECT * FROM all_legislation
-        {};""".format(link_query), open_connection())
-        
+        SELECT * FROM
+        (
+        SELECT *
+        FROM all_legislation
+        WHERE cast(congress as int) = {})
+        AS this_congress
+        LEFT JOIN bill_sponsors
+        ON this_congress.issue_link = bill_sponsors.url
+        WHERE bioguide_id = '{}'
+        """.format(self.congress_num, self.bioguide_id), open_connection())
+
         ## Unpack the policy area
         policy_area_list = []
 
@@ -1867,14 +1875,14 @@ class Performance(object):
                 x = ast.literal_eval(policy)
                 for i in range(len(x)):
                     policy_area_list.append(x[i])
-                
+
         policy_area_df = pd.DataFrame(policy_area_list)
         policy_area_df['count'] = 1
         policy_area_df = policy_area_df.groupby([0]).count().reset_index(drop=False)
         policy_area_df.columns = ['policy_area', 'count']
-        
+
         policy_area_df['percent'] = policy_area_df['count']/policy_area_df['count'].sum()
-        
+
         self.policy_area_df = policy_area_df[['policy_area', 'percent']]
 
     def num_days_voted_all(self):
