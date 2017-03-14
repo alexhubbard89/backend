@@ -279,6 +279,25 @@ def participation():
     else:
         return jsonify(results='check the chamber')
 
+## Return all attendance
+@app.route("/rank_participation", methods=["POST"])
+def rank_participation():
+    rep_perfomance = tally_toolkit.Performance()
+    tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    try:
+        data = json.loads(request.data.decode())
+        rep_perfomance.chamber = data['chamber']
+    except:
+        rep_perfomance.chamber = request.form['chamber']
+
+    ## Get data
+    tally_toolkit.Performance.num_votes_all(rep_perfomance)
+    try:
+        return jsonify(results=rep_perfomance.rep_votes_metrics.to_dict(orient='records'))
+    except:
+        ## If returns no data
+        return jsonify(results=False)
+
 
 ## Find number of votes shes cast
 @app.route("/efficacy", methods=["POST"])

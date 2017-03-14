@@ -1953,8 +1953,85 @@ class Performance(object):
         
         ## Add rank
         days_voted.loc[:, 'rank'] = days_voted['percent_at_work'].rank(method='min', ascending=False)
-        self.days_voted = days_voted
-    
+        self.days_voted = days_voted.loc[days_voted['bioguide_id'].notnull()].reset_index(drop=True)
+
+    def num_votes_all(self):
+        if self.chamber.lower() == 'house':
+            rep_votes = pd.read_sql_query("""
+            SELECT * FROM (
+            SELECT bioguide_id as b_id,
+            COUNT(bioguide_id) as rep_votes
+            FROM house_votes_tbl
+            where congress = {}
+            AND vote != 'Not Voting'
+            GROUP BY bioguide_id)
+            AS total_votes
+            LEFT JOIN (
+            SELECT * FROM congress_bio
+            WHERE chamber = 'house'
+            AND served_until = 'Present')
+            AS house_bio
+            ON house_bio.bioguide_id = total_votes.b_id
+            ;
+            """.format(self.congress_num), open_connection())
+
+            total_votes = pd.read_sql_query("""
+            SELECT COUNT(DISTINCT(roll_id)) total_votes
+            FROM house_votes_tbl
+            WHERE congress = {};
+            """.format(self.congress_num), open_connection())
+            
+            
+        elif self.chamber.lower() == 'senate':
+            rep_votes = pd.read_sql_query("""
+            SELECT distinct_votes.last_name,
+            distinct_votes.state,
+            COUNT(distinct_votes.last_name) as rep_votes
+            FROM (SELECT last_name, 
+            date, state
+            FROM senator_votes_tbl
+            WHERE congress = {}
+            AND vote_cast != 'Not Voting')
+            AS distinct_votes
+            GROUP BY last_name, state;""".format(
+                    self.congress_num),open_connection())
+
+            rep_votes['state'] = rep_votes['state'].apply(lambda x: str(us.states.lookup(x)))
+
+            total_votes = pd.read_sql_query("""
+                SELECT COUNT(DISTINCT(roll_id)) as total_votes 
+                FROM senator_votes_tbl 
+                WHERE congress = {};""".format(
+                    self.congress_num), open_connection())
+
+            find_senator = pd.read_sql("""
+            SELECT DISTINCT name,
+            bioguide_id,
+            state, district,
+            party,
+            photo_url
+            FROM congress_bio 
+            WHERE chamber = 'senate'
+            AND served_until = 'Present';""", open_connection())
+
+            find_senator['last_name'] = find_senator['name'].apply(lambda x: x.split(',')[0])
+            rep_votes = pd.merge(find_senator, rep_votes, how='left', on=['state', 'last_name'])
+
+        ## Get percent
+        rep_votes['total_votes'] = total_votes.loc[0, 'total_votes']
+        rep_votes['percent_votes'] = (rep_votes['rep_votes']/
+                                              rep_votes['total_votes'])
+
+        ## Subset columns, sort, and remove dupes
+        rep_votes = rep_votes[['bioguide_id', 'rep_votes', 'percent_votes', 
+                               'total_votes', 'name', 'state', 'district', 'party', 
+                                 'photo_url']].sort_values(['percent_votes'],
+                                                           ascending=False).drop_duplicates(['bioguide_id']).reset_index(drop=True)
+
+        ## Clean and rank
+        rep_votes = rep_votes.loc[rep_votes['bioguide_id'].notnull()].reset_index(drop=True)
+        rep_votes.loc[:, 'rank'] = rep_votes['percent_votes'].rank(method='min', ascending=False)
+        self.rep_votes_metrics = rep_votes
     
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
                 rep_votes_metrics=None, rep_sponsor_metrics=None,
