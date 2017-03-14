@@ -1947,7 +1947,7 @@ class Performance(object):
 
         ## Subset columns, sort, and remove dupes
         days_voted = days_voted[['bioguide_id', 'days_at_work', 'percent_at_work', 
-                                 'name', 'state', 'district', 'party', 
+                                 'total_work_days', 'name', 'state', 'district', 'party', 
                                  'photo_url']].sort_values(['percent_at_work', 'bioguide_id'],
                                                            ascending=[False,True]).drop_duplicates(['bioguide_id']).reset_index(drop=True)
         

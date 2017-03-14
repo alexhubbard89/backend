@@ -292,7 +292,7 @@ class bio_data_collector(object):
                 party = '{}',
                 served_until = '{}',
                 photo_url = '{}',
-                congress_url = '{}', 
+                congress_url = '{}'
                 WHERE (
                 bioguide_id = '{}' 
                 and chamber = '{}'
