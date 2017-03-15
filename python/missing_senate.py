@@ -21,7 +21,7 @@ def open_connection():
 
 senate_data = tally_toolkit.Senate_colleciton()
 
-for congress in range(101, 115):
+for congress in range(107, 115):
     for session in range(1,3):
         print congress
         print session
