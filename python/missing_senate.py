@@ -39,11 +39,8 @@ for congress in range(101, 115):
             senate_data.date_search = x.loc[i, 'vote_date']
             senate_data.roll_id = x.loc[i, 'roll_id']
             ## Find data
-            try:
-                tally_toolkit.Senate_colleciton.get_senate_votes(senate_data)
-                ## House
-                tally_toolkit.Senate_colleciton.votes_to_sql(senate_data)
-            except:
-                print 'did not work {}'.format(x.loc[i, 'roll_id'])
+            tally_toolkit.Senate_colleciton.get_senate_votes(senate_data)
+            ## House
+            tally_toolkit.Senate_colleciton.votes_to_sql(senate_data)
 
 print 'all done!'
