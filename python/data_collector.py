@@ -101,6 +101,7 @@ print 'Collect new senate votes'
 try:
     senate_data = tally_toolkit.Senate_colleciton()
     tally_toolkit.Senate_colleciton.daily_senate_menu(senate_data)
+    tally_toolkit.Senate_colleciton.daily_senate_votes(senate_data)
     good_collection += """\n\tSenate Votes"""
 except:
     bad_collection += """\n\tSenate Votes"""
