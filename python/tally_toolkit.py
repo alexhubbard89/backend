@@ -2327,6 +2327,19 @@ class Senate_colleciton(object):
 
         ## Put each row into sql
         for i in range(len(self.votes_df)):
+            try:
+                self.votes_df.loc[i, 'first_name'] = self.votes_df.loc[i, 'first_name'].replace("'", "''")
+                self.votes_df.loc[i, 'last_name'] = self.votes_df.loc[i, 'last_name'].replace("'", "''")
+                self.votes_df.loc[i, 'member_full'] = self.votes_df.loc[i, 'member_full'].replace("'", "''")
+            except:
+                'hold'
+            try:
+                self.votes_df.loc[i, 'first_name'] = str(self.votes_df.loc[i, 'first_name'].decode('unicode_escape').encode('ascii','ignore'))
+                self.votes_df.loc[i, 'last_name'] = str(self.votes_df.loc[i, 'last_name'].decode('unicode_escape').encode('ascii','ignore'))
+                self.votes_df.loc[i, 'member_full'] = str(self.votes_df.loc[i, 'member_full'].decode('unicode_escape').encode('ascii','ignore'))
+            except:
+                'hold'
+            
             x = list(self.votes_df.loc[i,])
 
             for p in [x]:
