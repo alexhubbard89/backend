@@ -2279,6 +2279,12 @@ class Senate_colleciton(object):
 
         I will use the senate vote menu
         to find new votes
+
+        attributes:
+        congress number
+        session number
+        roll number
+        date
         """
 
         ## Create session, headers and url to serach
