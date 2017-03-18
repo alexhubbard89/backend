@@ -2554,30 +2554,82 @@ class Ideology(object):
         FROM representatives_ideology_stats
         WHERE ideology_type = '{}'""".format(self.ideology.lower()), open_connection())
         
+    # def get_votes_to_predict_ideology(self):
+    #     predictive_legislation_sql = pd.read_sql_query("""
+    #         SELECT * 
+    #         FROM predictive_legislation 
+    #         WHERE ideology_to_predict = '{}'""".format(self.ideology.lower()),
+    #                                                        open_connection())
+    #     ## Build query to find bills that are predictive    
+    #     search_query = ''
+    #     for i in range(0, len(predictive_legislation_sql)):
+    #         if i > 0:
+    #             search_query += " or (roll_id = {})".format(
+    #                 predictive_legislation_sql.loc[i, 'roll_id'])
+    #         elif i == 0:
+    #             search_query += "(roll_id = {})".format(
+    #                 predictive_legislation_sql.loc[i, 'roll_id'])
+
+    #     ## Query db for predictive bills
+    #     self.predictive_bills_votes = pd.read_sql_query("""SELECT *, cast(roll as int) as roll_int 
+    #     FROM house_votes_tbl 
+    #     WHERE ({})""".format(search_query), open_connection())
+
     def get_votes_to_predict_ideology(self):
         predictive_legislation_sql = pd.read_sql_query("""
             SELECT * 
-            FROM predictive_legislation 
+            FROM predictive_legislation_truncated 
             WHERE ideology_to_predict = '{}'""".format(self.ideology.lower()),
                                                            open_connection())
-        ## Build query to find bills that are predictive    
-        search_query = ''
-        for i in range(0, len(predictive_legislation_sql)):
-            if i > 0:
-                search_query += " or (roll_id = {})".format(
-                    predictive_legislation_sql.loc[i, 'roll_id'])
-            elif i == 0:
-                search_query += "(roll_id = {})".format(
-                    predictive_legislation_sql.loc[i, 'roll_id'])
-
-        ## Query db for predictive bills
-        self.predictive_bills_votes = pd.read_sql_query("""SELECT *, cast(roll as int) as roll_int 
-        FROM house_votes_tbl 
-        WHERE ({})""".format(search_query), open_connection())
         
-    def find_question_breakdown(self, roll_id):
+        predictive_legislation_sql_house = predictive_legislation_sql.loc[predictive_legislation_sql['chamber'] == 'house']
+        predictive_legislation_sql_senate = predictive_legislation_sql.loc[predictive_legislation_sql['chamber'] == 'senate']
+        master_df = pd.DataFrame()
+        ## Build query to find bills that are predictive   
+        if len(predictive_legislation_sql_house):
+            search_query = ''
+            for i in range(0, len(predictive_legislation_sql_house)):
+                if i > 0:
+                    search_query += " or (roll_id = {})".format(
+                        predictive_legislation_sql_house.loc[i, 'roll_id'])
+                elif i == 0:
+                    search_query += "(roll_id = {})".format(
+                        predictive_legislation_sql_house.loc[i, 'roll_id'])
+
+            ## Query db for predictive bills
+            predictive_bills_votes_house = pd.read_sql_query("""SELECT *, cast(roll as int) as roll_int 
+            FROM house_votes_tbl 
+            WHERE ({})""".format(search_query), open_connection())
+
+            predictive_bills_votes_house.loc[:, 'chamber'] = 'house'
+            
+            self.predictive_bills_votes = master_df.append(predictive_bills_votes_house)
+        
+        ## Build query to find bills that are predictive    
+        if len(predictive_legislation_sql_senate):
+            search_query = ''
+            for i in range(0, len(predictive_legislation_sql_senate)):
+                if i > 0:
+                    search_query += " or (roll_id = {})".format(
+                        predictive_legislation_sql_senate.loc[i, 'roll_id'])
+                elif i == 0:
+                    search_query += "(roll_id = {})".format(
+                        predictive_legislation_sql_senate.loc[i, 'roll_id'])
+
+            ## Query db for predictive bills
+            predictive_bills_votes_senate = pd.read_sql_query("""SELECT *, cast(roll as int) as roll_int 
+            FROM senator_votes_tbl 
+            WHERE ({})""".format(search_query), open_connection())
+
+            predictive_bills_votes_senate.loc[:, 'chamber'] = 'senate'
+        
+            master_df = master_df.append(predictive_bills_votes_senate)
+        return master_df
+        
+    def find_question_breakdown(self):
         ## Subset the roll call vote and take only needed data
-        test_scores = self.predictive_bills_votes.loc[(self.predictive_bills_votes['roll_id'] == roll_id)].reset_index(drop=True)
+        test_scores = self.predictive_bills_votes.loc[((self.predictive_bills_votes['roll_id'] == self.roll_id) &
+                                                 (self.predictive_bills_votes['chamber'] == self.chamber))].reset_index(drop=True)
         test_scores = test_scores[['member_full', 'vote', 'bioguide_id']]
 
         ## Subset by ideology testing
@@ -2589,9 +2641,15 @@ class Ideology(object):
                  how='left', on='bioguide_id')
 
         ## Convert numeric ideology to categorical
-        test_scores.loc[test_scores['tally_score'] < 0, 'ideology'] = 'l'
-        test_scores.loc[test_scores['tally_score'] > 0, 'ideology'] = 'c'
-        test_scores.loc[test_scores['tally_score'] == 0, 'ideology'] = 'n'
+        """
+        Since the columns are floats then I want
+        to take anything that is between -1 and 1 and
+        make them neutral."
+        """
+        test_scores.loc[test_scores['tally_score'] < -.5, 'ideology'] = 'l'
+        test_scores.loc[test_scores['tally_score'] > .5, 'ideology'] = 'c'
+        test_scores.loc[((test_scores['tally_score'] < .5) &
+                         (test_scores['tally_score'] > -.5)), 'ideology'] = 'n'
 
         ## Group categoritycal ideology and only look at actual votes
         x = test_scores.groupby(['ideology', 'vote']).count()['bioguide_id'].reset_index(drop=False)
@@ -2626,7 +2684,8 @@ class Ideology(object):
                         'vote',
                         'vote_count', 
                         'percent_breakdown']
-            x.loc[:, 'roll_id'] = roll_id
+            x.loc[:, 'roll_id'] = self.roll_id
+            x.loc[:, 'chamber'] = self.chamber
             return x
         else:
             return pd.DataFrame()
@@ -2657,9 +2716,11 @@ class Ideology(object):
         master_ideology_explore = pd.DataFrame()
 
         ## Subset dataset to only look at unique roll call votes
-        df_subset = self.predictive_bills_votes.loc[:, ['roll_id']].drop_duplicates().reset_index(drop=True)
+        df_subset = self.predictive_bills_votes.loc[:, ['roll_id', 'chamber']].drop_duplicates().reset_index(drop=True)
         for i in range(len(df_subset)):
-            x = Ideology.find_question_breakdown(self, df_subset.loc[i, 'roll_id'])
+            self.roll_id = df_subset.loc[i, 'roll_id']
+            self.chamber = df_subset.loc[i, 'chamber']
+            x = Ideology.find_question_breakdown(self)
             master_ideology_explore = master_ideology_explore.append(x)
 
         self.master_ideology = master_ideology_explore.reset_index(drop=True)
@@ -2694,52 +2755,67 @@ class Ideology(object):
 
         """
 
-        ideology_vote_breakdown = self.master_ideology.loc[self.master_ideology['ideology'] != 'n']
+        ideology_vote_breakdown = self.master_ideology.loc[(self.master_ideology['ideology'] != 'n')]
         ideology_vote_breakdown.loc[:, 'ideology_vote_percent'] = None
 
-        for roll_id_num in np.unique(ideology_vote_breakdown['roll_id']):
+        bill_finder = ideology_vote_breakdown.loc[:, ['roll_id', 'chamber']].drop_duplicates().reset_index(drop=True)
+        for i in range(len(bill_finder)):
+            roll_id = int(bill_finder.loc[i, 'roll_id'])
+            chamber = bill_finder.loc[i, 'chamber']
+
             ## Count the number of votes by ideology per bill
-            total_l_votes = ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id_num) &
-                                                         (ideology_vote_breakdown['ideology'] == 'l')), 'vote_count'].sum()
-            total_c_votes = ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id_num) &
-                                                     (ideology_vote_breakdown['ideology'] == 'c')), 'vote_count'].sum()
+            total_l_votes = ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id) &
+                                                        (ideology_vote_breakdown['chamber'] == chamber) &
+                                                        (ideology_vote_breakdown['ideology'] == 'l')), 'vote_count'].sum()
+            total_c_votes = ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id) &
+                                                        (ideology_vote_breakdown['chamber'] == chamber) &
+                                                        (ideology_vote_breakdown['ideology'] == 'c')), 'vote_count'].sum()
 
             ## If there are more than 25 data points for l and c votes than stats can be used
-            if (total_l_votes >= 25) & (total_c_votes >= 25):
+            if (total_l_votes >= 10) & (total_c_votes >= 10):
 
                 ## Percent of votes by ideology
-                ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id_num) &
-                                      (ideology_vote_breakdown['ideology'] == 'l')), 'ideology_vote_percent'] = (
-                    ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id_num) &
-                                                 (ideology_vote_breakdown['ideology'] == 'l')), 'vote_count']/total_l_votes)
+                ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id) &
+                                            (ideology_vote_breakdown['chamber'] == chamber) &
+                                            (ideology_vote_breakdown['ideology'] == 'l')), 'ideology_vote_percent'] = (
+                    ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id) &
+                                                (ideology_vote_breakdown['chamber'] == chamber) &
+                                                (ideology_vote_breakdown['ideology'] == 'l')), 'vote_count']/total_l_votes)
 
-                ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id_num) &
-                                      (ideology_vote_breakdown['ideology'] == 'c')), 'ideology_vote_percent'] = (
-                    ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id_num) &
-                                                 (ideology_vote_breakdown['ideology'] == 'c')), 'vote_count']/total_c_votes)
+                ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id) &
+                                            (ideology_vote_breakdown['chamber'] == chamber) &
+                                            (ideology_vote_breakdown['ideology'] == 'c')), 'ideology_vote_percent'] = (
+                    ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id) &
+                                                (ideology_vote_breakdown['chamber'] == chamber) &
+                                                (ideology_vote_breakdown['ideology'] == 'c')), 'vote_count']/total_c_votes)
 
 
 
 
         partisan_bills_only = pd.DataFrame()
+        for i in range(len(bill_finder)):
+            roll_id = int(bill_finder.loc[i, 'roll_id'])
+            chamber = bill_finder.loc[i, 'chamber']
+            try:
+                c_vote = ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id) &
+                                                    (ideology_vote_breakdown['chamber'] == chamber) &
+                                                    (ideology_vote_breakdown['ideology'] == 'c'))].sort_values('ideology_vote_percent',
+                                                    ascending=False).reset_index(drop=True).loc[0, 'vote']
 
-        for roll_id_num in np.unique(ideology_vote_breakdown['roll_id']):
-            c_vote = ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id_num) &
-                                                  (ideology_vote_breakdown['ideology'] == 'c'))].sort_values('ideology_vote_percent',
-                                                                                                             ascending=False).reset_index(
-                drop=True).loc[0, 'vote']
-            l_vote = ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id_num) &
-                                                  (ideology_vote_breakdown['ideology'] == 'l'))].sort_values('ideology_vote_percent',
-                                                                                                             ascending=False).reset_index(
-                drop=True).loc[0, 'vote']
+                l_vote = ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id) &
+                                                    (ideology_vote_breakdown['chamber'] == chamber) &
+                                                    (ideology_vote_breakdown['ideology'] == 'l'))].sort_values('ideology_vote_percent', ascending=False).reset_index(drop=True).loc[0, 'vote']
 
+                if (c_vote == l_vote):
+                    'nonpartisan'
+                else:
+                    partisan_bills_only = partisan_bills_only.append(
+                        ideology_vote_breakdown.loc[((ideology_vote_breakdown['roll_id'] == roll_id) &
+                                                    (ideology_vote_breakdown['chamber'] == chamber))])
+            except:
+                'Only one type of vote'
 
-            if (c_vote == l_vote):
-                'nonpartisan'
-            else:
-                partisan_bills_only = partisan_bills_only.append(
-                    ideology_vote_breakdown.loc[ideology_vote_breakdown['roll_id'] == roll_id_num])
-
+        partisan_bills_only = partisan_bills_only.loc[partisan_bills_only['ideology_vote_percent'].notnull()]
         self.partisan_bills_only = partisan_bills_only.reset_index(drop=True)
         
     def get_probs(self):
@@ -2761,7 +2837,7 @@ class Ideology(object):
         """
 
         ## Make master data frame
-        ideology_stats_by_rep = self.predictive_bills_votes[['bioguide_id', 'vote', 'roll_id']]
+        ideology_stats_by_rep = self.predictive_bills_votes[['bioguide_id', 'vote', 'roll_id', 'chamber']]
         ideology_stats_by_rep = ideology_stats_by_rep.loc[ideology_stats_by_rep['vote'] != 'Not Voting']
         ideology_stats_by_rep = ideology_stats_by_rep.loc[ideology_stats_by_rep['vote'] != 'Present']
         ideology_stats_by_rep.loc[:, 'roll_id'] = ideology_stats_by_rep.loc[:, 'roll_id'].astype(int)
@@ -2773,32 +2849,45 @@ class Ideology(object):
 
 
         ## For each bill and each vote get probability breakdown and save it to reps
-        for roll_id in np.unique(self.partisan_bills_only['roll_id']):
-            for vote in np.unique(self.partisan_bills_only.loc[self.partisan_bills_only['roll_id'] == roll_id, 'vote']):
+
+        bill_finder = self.partisan_bills_only.loc[:, ['roll_id', 'chamber']].drop_duplicates().reset_index(drop=True)
+        for i in range(len(bill_finder)):
+            roll_id = int(bill_finder.loc[i, 'roll_id'])
+            chamber = bill_finder.loc[i, 'chamber']
+            bill_finder_sub = self.partisan_bills_only.loc[((self.partisan_bills_only['roll_id'] == roll_id) & 
+                (self.partisan_bills_only['chamber'] == chamber))]
+            for vote in np.unique(bill_finder_sub.loc[:, 'vote']):
                 ## Get probs by vote per roll_id
                 if (len(self.partisan_bills_only.loc[((self.partisan_bills_only['roll_id'] ==  roll_id) &
+                                (self.partisan_bills_only['chamber'] ==  chamber) & 
                                 (self.partisan_bills_only['vote'] == vote) &
                                 (self.partisan_bills_only['ideology'] == 'c'))])) > 0:
                     c_prob = float(self.partisan_bills_only.loc[((self.partisan_bills_only['roll_id'] ==  roll_id) &
+                                    (self.partisan_bills_only['chamber'] ==  chamber) &
                                     (self.partisan_bills_only['vote'] == vote) &
                                     (self.partisan_bills_only['ideology'] == 'c')), 'ideology_vote_percent'].reset_index(drop=True)[0])
                 else:
                     c_prob = 0
 
                 if (len(self.partisan_bills_only.loc[((self.partisan_bills_only['roll_id'] ==  roll_id) &
+                                (self.partisan_bills_only['chamber'] ==  chamber) &
                                 (self.partisan_bills_only['vote'] == vote) &
                                 (self.partisan_bills_only['ideology'] == 'l'))])) > 0:
                     l_prob = float(self.partisan_bills_only.loc[((self.partisan_bills_only['roll_id'] ==  roll_id) &
+                                    (self.partisan_bills_only['chamber'] ==  chamber) &
                                     (self.partisan_bills_only['vote'] == vote) &
                                     (self.partisan_bills_only['ideology'] == 'l')), 'ideology_vote_percent'].reset_index(drop=True)[0])
                 else:
                     l_prob = 0
 
+
                 ## Save each reps conservative and liberal probability per vote
-                ideology_stats_by_rep.loc[((ideology_stats_by_rep['roll_id'] == int(roll_id)) 
-                                           &(ideology_stats_by_rep['vote'] == vote)), 'c_prob'] = c_prob
-                ideology_stats_by_rep.loc[((ideology_stats_by_rep['roll_id'] == int(roll_id)) 
-                                           &(ideology_stats_by_rep['vote'] == vote)), 'l_prob'] = l_prob
+                ideology_stats_by_rep.loc[((ideology_stats_by_rep['roll_id'] == int(roll_id)) &
+                                        (ideology_stats_by_rep['chamber'] == chamber) & 
+                                        (ideology_stats_by_rep['vote'] == vote)), 'c_prob'] = c_prob
+                ideology_stats_by_rep.loc[((ideology_stats_by_rep['roll_id'] == int(roll_id)) &
+                                        (ideology_stats_by_rep['chamber'] == chamber) &
+                                        (ideology_stats_by_rep['vote'] == vote)), 'l_prob'] = l_prob
 
 
         ideology_stats_by_rep_sums = ideology_stats_by_rep[['bioguide_id', 'c_prob', 'l_prob']].groupby(['bioguide_id']).sum().reset_index(drop=False)
@@ -2905,31 +2994,112 @@ class Ideology(object):
             counter += 1
 
         sql_query += ';'
-        df = pd.read_sql_query(sql_query, open_connection())
+        df_house = pd.read_sql_query(sql_query, open_connection())
+
 
         ## Query the roll call votes
         ## If there are a lot of bills it goes slow
         ## Query in batches
-
-        predictive_bills_votes = pd.DataFrame()
-        for i in range(0, len(df), 5):
+        predictive_bills_votes_house = pd.DataFrame()
+        for i in range(0, len(df_house), 5):
             sql_query = 'SELECT * FROM house_votes_tbl'
             for j in range(i, i+5):
                 if j != i:
                     try:
-                        sql_query += " OR roll_id = {}".format(df.loc[j, 'roll_id'])
+                        sql_query += " OR roll_id = {}".format(df_house.loc[j, 'roll_id'])
                     except:
                         "doesn't go that high"
                 elif j == i:
-                    sql_query += " WHERE roll_id = {}".format(df.loc[j, 'roll_id'])
+                    sql_query += " WHERE roll_id = {}".format(df_house.loc[j, 'roll_id'])
             sql_query += ";"
-            
-            x = pd.read_sql_query(sql_query, open_connection())
-            predictive_bills_votes = predictive_bills_votes.append(x)
-            
-        predictive_bills_votes = predictive_bills_votes.reset_index(drop=True)
 
-        self.predictive_bills_votes = pd.read_sql_query(sql_query, open_connection())
+            x = pd.read_sql_query(sql_query, open_connection())
+            predictive_bills_votes_house = predictive_bills_votes_house.append(x)
+
+
+        predictive_bills_votes_house.loc[:, 'chamber'] = 'house'
+        predictive_bills_votes_house = predictive_bills_votes_house.drop('role', 1)
+        predictive_bills_votes_house = predictive_bills_votes_house.loc[predictive_bills_votes_house['bioguide_id'] != 'None']
+        predictive_bills_votes_house = predictive_bills_votes_house.reset_index(drop=True)
+
+
+        ## Query the roll call votes
+        """
+        Find votes for senate. Because senate roll_call
+        doesn't have bioguide_ids I need to find them
+        from the congress_bio table
+        """
+
+        ## Convert issues column
+        for i in range(len(df)):
+            issue = re.split('(\d+)', df.loc[i, 'issue'])
+            issue_split = ''
+            for word in issue:
+                if len(word) > 0:
+                    issue_split += word
+                    issue_split += ' '
+            df.loc[i, 'issue'] = (issue_split).strip().lower()
+
+        ## Find bills from Senate vote menu
+        sql_query = 'SELECT * FROM senate_vote_menu'
+        for i in range(len(df)):
+            if i != 0:
+                sql_query += " OR (lower(issue) = '{}' AND congress = {})".format(df.loc[i, 'issue'],
+                                                                df.loc[i, 'congress'])
+            elif i == 0:
+                sql_query += " WHERE (lower(issue) = '{}' AND congress = {})".format(df.loc[i, 'issue'],
+                                                                df.loc[i, 'congress'])
+
+        sql_query += ';'
+        df_senate = pd.read_sql_query(sql_query, open_connection())
+
+
+        ## Find the roll_ids from the senate vote table
+        predictive_bills_votes_senate = pd.DataFrame()
+        for i in range(0, len(df_senate), 5):
+            sql_query = 'SELECT * FROM senator_votes_tbl'
+            for j in range(i, i+5):
+                if j != i:
+                    try:
+                        sql_query += " OR roll_id = {}".format(df_senate.loc[j, 'roll_id'])
+                    except:
+                        "doesn't go that high"
+                elif j == i:
+                    sql_query += " WHERE roll_id = {}".format(df_senate.loc[j, 'roll_id'])
+            sql_query += ";"
+
+            x = pd.read_sql_query(sql_query, open_connection())
+            predictive_bills_votes_senate = predictive_bills_votes_senate.append(x)
+        find_senator = pd.read_sql("""
+        SELECT DISTINCT name,
+        bioguide_id,
+        state
+        FROM (
+        SELECT * FROM 
+        congress_bio 
+        WHERE chamber = 'senate'
+        ORDER BY year_elected)
+        AS bio_sorted;""", open_connection())
+        find_senator['last_name'] = find_senator['name'].apply(lambda x: x.split(',')[0].split(' ')[0])
+        find_senator = find_senator.drop_duplicates(['bioguide_id']).reset_index(drop=True)
+        predictive_bills_votes_senate.loc[:, 'state_long'] = predictive_bills_votes_senate.loc[:, 'state'].apply(lambda x: str(us.states.lookup(x)))
+        predictive_bills_votes_senate = pd.merge(predictive_bills_votes_senate, find_senator, how='left', 
+                           left_on=['state_long', 'last_name'],
+                          right_on=['state', 'last_name'])
+        predictive_bills_votes_senate = predictive_bills_votes_senate.loc[predictive_bills_votes_senate['bioguide_id'].notnull()]
+        predictive_bills_votes_senate = predictive_bills_votes_senate[['member_full', 'bioguide_id', 'party',
+                                                                       'state_x','vote_cast', 'year', 'roll',
+                                                                       'congress', 'session', 'date', 'roll_id']]
+        predictive_bills_votes_senate.columns = ['member_full', 'bioguide_id', 'party', 'state',
+                                      'vote', 'year', 'roll', 'congress', 'session', 'date', 'roll_id']
+        predictive_bills_votes_senate.loc[:, 'chamber'] = 'senate'
+        predictive_bills_votes_senate = predictive_bills_votes_senate.loc[predictive_bills_votes_senate['bioguide_id'] != 'None']
+        predictive_bills_votes_senate = predictive_bills_votes_senate.reset_index(drop=True)
+
+
+        ## Put house and senate votes together
+        predictive_bills_votes = predictive_bills_votes_senate.append(predictive_bills_votes_house).reset_index(drop=True)
+        self.predictive_bills_votes = predictive_bills_votes
 
         ## Grab the ideology stats
         Ideology.get_ideology_stats(self)
@@ -2945,19 +3115,10 @@ class Ideology(object):
         Join the partisan/predictive bills with the original
         vote menu collected.
         """
-        x = pd.DataFrame(np.unique(self.partisan_bills_only['roll_id']), columns=['roll_id'])
-        df = pd.merge(x, df, how='left', on='roll_id')
 
-        """
-        Reorder and show they they're predictive and which 
-        ones the users can vote on.
-        """
-        df = df[['roll', 'roll_link', 'date', 'issue', 'issue_link', 'question',
-                                       'result', 'title_description', 'congress', 'session','roll_id']]
-        df.loc[:, 'predict_user_ideology'] = False
-        df.loc[df['question'].str.lower() == 'on passage', 'predict_user_ideology'] = True
-        df.loc[:, 'ideology_to_predict'] = self.ideology
-        
+        df = self.partisan_bills_only[['roll_id', 'chamber']]#.drop_duplicates().reset_index(drop=True)
+        df.loc[:, 'roll_id'] = df.loc[:, 'roll_id'].astype(int)
+        df.loc[:, 'ideology_to_predict'] = self.ideology 
         
         """
         Now that the data is clean I can 
@@ -2968,42 +3129,17 @@ class Ideology(object):
 
         ## Put data into table
         for i in range(len(df)):
-            ## Remove special character from the title
-            try:
-                df.loc[i, 'title_description'] = df.loc[i, 'title_description'].replace("'", "''")
-            except:
-                'hold'
-            try:
-                df.loc[i, 'title_description'] = df.loc[i, 'title_description'].encode('utf-8').replace('\xc3\xa1','a')
-            except:
-                'hold'
             x = list(df.loc[i,])
             for p in [x]:
                 format_str = """
-                INSERT INTO predictive_legislation (
-                roll,
-                roll_link,
-                date,
-                issue,
-                issue_link,
-                question,
-                result,
-                title_description,
-                congress,
-                session, 
-                roll_id, 
-                predict_user_ideology,
+                INSERT INTO predictive_legislation_truncated (
+                roll_id,
+                chamber,
                 ideology_to_predict)
-                VALUES ('{roll}', '{roll_link}', '{date}', '{issue}',
-                 '{issue_link}', '{question}', '{result}', '{title_description}', 
-                 '{congress}', '{session}', '{roll_id}', '{predict_user_ideology}',
-                 '{ideology_to_predict}');"""
+                VALUES ('{roll_id}', '{chamber}', '{ideology_to_predict}');"""
 
 
-                sql_command = format_str.format(roll=p[0], roll_link=p[1], date=p[2], 
-                    issue=p[3], issue_link=p[4], question=p[5], result=p[6], 
-                    title_description=p[7], congress=p[8], session=p[9], roll_id=p[10],
-                    predict_user_ideology=p[11], ideology_to_predict=p[12])
+                sql_command = format_str.format(roll_id=p[0], chamber=p[1], ideology_to_predict=p[2])
             ## Commit to sql
             try:
                 cursor.execute(sql_command)
@@ -3011,36 +3147,6 @@ class Ideology(object):
             except:
                 ## Update what I got
                 connection.rollback()
-                sql_command = """UPDATE predictive_legislation 
-                SET
-                roll = '{}',
-                roll_link = '{}',
-                date = '{}', 
-                issue = '{}', 
-                issue_link = '{}', 
-                question = '{}', 
-                result = '{}', 
-                title_description = '{}',
-                congress = '{}', 
-                session = '{}', 
-                predict_user_ideology = '{}'
-                WHERE (roll_id = '{}' AND ideology_to_predict = '{}');""".format(
-                df.loc[i, 'roll'],
-                df.loc[i, 'roll_link'],
-                df.loc[i, 'date'],
-                df.loc[i, 'issue'],
-                df.loc[i, 'issue_link'],
-                df.loc[i, 'question'],
-                df.loc[i, 'result'],
-                df.loc[i, 'title_description'],
-                df.loc[i, 'congress'],
-                df.loc[i, 'session'],
-                df.loc[i, 'predict_user_ideology'],
-                df.loc[i, 'roll_id'],
-                df.loc[i, 'ideology_to_predict']    
-                )    
-                cursor.execute(sql_command)
-                connection.commit()
         connection.close()
         
     def make_tally_score(self):
@@ -3139,9 +3245,10 @@ class Ideology(object):
         ## Close yo shit
         connection.close()
     
-    def __init__(self, ideology=None, chamber=None, ideology_df=None, predictive_bills_votes=None,
+    def __init__(self, ideology=None, roll_id=None, chamber=None, ideology_df=None, predictive_bills_votes=None,
                 master_ideology=None, partisan_bills_only=None, ideology_stats_by_rep_sums=None):
         self.ideology = ideology
+        self.roll_id = roll_id
         self.chamber = chamber
         self.ideology_df = ideology_df
         self.predictive_bills_votes = predictive_bills_votes
