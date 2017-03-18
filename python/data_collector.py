@@ -109,6 +109,16 @@ except:
 to_classify = ['women and minority rights', 'immigration', 'abortion', 'environmental protection', 'second amendment']
 
 for ideology_category in to_classify:
+    print 'Classify ideology - {}'.format(ideology_category)
+    ideology_data = tally_toolkit.Ideology()
+    ideology_data.ideology = ideology_category
+    try:
+        tally_toolkit.Ideology.update_predictive_legislation(ideology_data)
+        good_collection += """\n\tIdeology Updated - {}""".format(ideology_category)
+    except:
+        bad_collection += """\n\tIdeology Updated - {}""".format(ideology_category)
+
+for ideology_category in to_classify:
     try: 
         print 'Classify ideology - {}'.format(ideology_category)
         ideology_data = tally_toolkit.Ideology()
