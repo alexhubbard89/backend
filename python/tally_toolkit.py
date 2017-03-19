@@ -2133,13 +2133,13 @@ class Performance(object):
                     WHERE served_until = 'Present'
                     AND (lower(name) ilike '%' || '{}' || '%'
                     OR lower(state) ilike '%' || '{}' || '%'
-                    OR lower(party) ilike '%' || '{}' || '%'
-                    {})
+                    OR lower(party) ilike '%' || '{}' || '%')
+                    AND ({})
                     """.format(
                         search_term,
                         search_term,
                         search_term,
-                        dist_search), open_connection()).to_dict(orient='records')
+                        dist_search[4:]), open_connection()).to_dict(orient='records')
                 else:
                     return pd.read_sql_query("""
                     SELECT name,
