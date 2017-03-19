@@ -2112,7 +2112,7 @@ class Performance(object):
         search_term = sanitize(self.search_term.lower())
 
         return pd.read_sql_query("""
-        SELECT name,
+        SELECT DISTINCT name,
         bioguide_id,
         state,
         district,
