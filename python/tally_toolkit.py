@@ -2110,22 +2110,69 @@ class Performance(object):
 
     def search(self):
         search_term = sanitize(self.search_term.lower())
+        
+        if 'district' in search_term:
+            search_term = search_term.replace('district', '')
+            num = []
+            [num.append(int(s)) for s in search_term.split() if s.isdigit()]
+            if len(num) > 0:
+                dist_search = ''
+                for i in range(len(num)):
+                    search_term = search_term.replace(str(num[i]), '')
+                    dist_search += " OR district = {} ".format(num[i])
+                search_term = search_term.strip(' ')
+                if len(search_term) > 0:
+                    return pd.read_sql_query("""
+                    SELECT name,
+                    bioguide_id,
+                    state,
+                    district,
+                    party,
+                    chamber
+                    FROM congress_bio
+                    WHERE served_until = 'Present'
+                    AND (lower(name) ilike '%' || '{}' || '%'
+                    OR lower(state) ilike '%' || '{}' || '%'
+                    OR lower(party) ilike '%' || '{}' || '%'
+                    {})
+                    """.format(
+                        search_term,
+                        search_term,
+                        search_term,
+                        dist_search), open_connection()).to_dict(orient='records')
+                else:
+                    return pd.read_sql_query("""
+                    SELECT name,
+                    bioguide_id,
+                    state,
+                    district,
+                    party,
+                    chamber
+                    FROM congress_bio
+                    WHERE served_until = 'Present'
+                    AND ({})
+                    """.format(
+                        dist_search[4:]), open_connection()).to_dict(orient='records')
+                    
+                    
+                    
+                return len(search_term), num
+            else:
+                search_term = search_term.strip(' ')
 
         return pd.read_sql_query("""
-        SELECT DISTINCT name,
+        SELECT name,
         bioguide_id,
         state,
         district,
         party,
-        chamber,
-        photo_url
+        chamber
         FROM congress_bio
         WHERE served_until = 'Present'
         AND (lower(name) ilike '%' || '{}' || '%'
         OR lower(state) ilike '%' || '{}' || '%'
         OR lower(party) ilike '%' || '{}' || '%')
         """.format(
-            search_term,
             search_term,
             search_term,
             search_term
