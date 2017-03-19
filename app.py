@@ -337,7 +337,6 @@ def rank_efficacy():
     try:
         data = json.loads(request.data.decode())
         rep_perfomance.chamber = data['chamber']
-        rep_perfomance.congress_num = data['congress']
     except:
         rep_perfomance.chamber = request.form['chamber']
 
