@@ -2109,7 +2109,8 @@ class Performance(object):
         state,
         district,
         party,
-        chamber
+        chamber,
+        photo_url
         FROM congress_bio
         WHERE served_until = 'Present'
         AND (lower(name) ilike '%' || '{}' || '%'
