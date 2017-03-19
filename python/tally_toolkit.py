@@ -3356,7 +3356,11 @@ class Search(object):
             none of the other stuff worked.
             Just search what you originally got.
             """
-
+            try:
+                search_term = str(us.states.lookup(search_term)).lower()
+            except:
+                'dont change it'
+                
             return pd.read_sql_query("""
             SELECT name,
             bioguide_id,
