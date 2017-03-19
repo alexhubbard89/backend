@@ -3325,7 +3325,8 @@ class Search(object):
                     state,
                     district,
                     party,
-                    chamber
+                    chamber,
+                    photo_url
                     FROM congress_bio
                     WHERE served_until = 'Present'
                     AND (lower(name) ilike '%' || '{}' || '%'
@@ -3344,7 +3345,8 @@ class Search(object):
                     state,
                     district,
                     party,
-                    chamber
+                    chamber,
+                    photo_url
                     FROM congress_bio
                     WHERE served_until = 'Present'
                     AND ({})
@@ -3360,14 +3362,15 @@ class Search(object):
                 search_term = str(us.states.lookup(search_term)).lower()
             except:
                 'dont change it'
-                
+
             return pd.read_sql_query("""
             SELECT name,
             bioguide_id,
             state,
             district,
             party,
-            chamber
+            chamber,
+            photo_url
             FROM congress_bio
             WHERE served_until = 'Present'
             AND (lower(name) ilike '%' || '{}' || '%'
