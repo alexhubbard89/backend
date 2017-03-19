@@ -1943,7 +1943,8 @@ class Performance(object):
             party,
             photo_url
             FROM congress_bio 
-            WHERE chamber = 'senate';""", open_connection())
+            WHERE chamber = 'senate'
+            AND served_until = 'Present';""", open_connection())
 
             find_senator['last_name'] = find_senator['name'].apply(lambda x: x.split(',')[0])
             days_voted = pd.merge(days_voted, find_senator, how='left', on=['state', 'last_name'])
@@ -1966,20 +1967,12 @@ class Performance(object):
     def num_votes_all(self):
         if self.chamber.lower() == 'house':
             rep_votes = pd.read_sql_query("""
-            SELECT * FROM (
-            SELECT bioguide_id as b_id,
+            SELECT bioguide_id,
             COUNT(bioguide_id) as rep_votes
             FROM house_votes_tbl
             where congress = {}
             AND vote != 'Not Voting'
-            GROUP BY bioguide_id)
-            AS total_votes
-            LEFT JOIN (
-            SELECT * FROM congress_bio
-            WHERE chamber = 'house'
-            AND served_until = 'Present')
-            AS house_bio
-            ON house_bio.bioguide_id = total_votes.b_id
+            GROUP BY bioguide_id
             ;
             """.format(self.congress_num), open_connection())
 
@@ -1988,6 +1981,18 @@ class Performance(object):
             FROM house_votes_tbl
             WHERE congress = {};
             """.format(self.congress_num), open_connection())
+
+            find_house = pd.read_sql("""
+            SELECT DISTINCT name,
+            bioguide_id,
+            state, district,
+            party,
+            photo_url
+            FROM congress_bio 
+            WHERE chamber = 'house'
+            AND served_until = 'Present';""", open_connection())
+
+            rep_votes = pd.merge(find_house, rep_votes, how='left', on='bioguide_id')
             
             
         elif self.chamber.lower() == 'senate':
@@ -2026,6 +2031,7 @@ class Performance(object):
             rep_votes = pd.merge(find_senator, rep_votes, how='left', on=['state', 'last_name'])
 
         ## Get percent
+        rep_votes.loc[rep_votes['rep_votes'].isnull(), 'rep_votes'] = 0
         rep_votes['total_votes'] = total_votes.loc[0, 'total_votes']
         rep_votes['percent_votes'] = (rep_votes['rep_votes']/
                                               rep_votes['total_votes'])
@@ -2054,7 +2060,7 @@ class Performance(object):
             SELECT * FROM
             (
             SELECT 
-            bioguide_id as b_id,
+            bioguide_id,
             count(bioguide_id) as rep_sponsor
             FROM(
             SELECT * FROM
@@ -2069,22 +2075,24 @@ class Performance(object):
             joined_leg
             GROUP BY joined_leg.bioguide_id)
             AS all_sponsor
-            LEFT JOIN (
-            SELECT name,
+            """.format(self.congress_num), open_connection())
+
+        find_reps = pd.read_sql("""
+            SELECT DISTINCT name,
             bioguide_id,
             state, district,
             party,
             photo_url,
             chamber
             FROM congress_bio 
-            WHERE served_until = 'Present'
-            ) AS c_bio
-            ON all_sponsor.b_id = c_bio.bioguide_id
-            """.format(self.congress_num), open_connection())
+            WHERE served_until = 'Present';""", open_connection())
+
+        all_sponsored = pd.merge(find_reps, all_sponsored, how='left', on='bioguide_id')
 
         all_sponsored = all_sponsored.sort_values(['rep_sponsor', 'bioguide_id'], 
                                   ascending=[False, True]).reset_index(drop=True)
 
+        all_sponsored.loc[all_sponsored['rep_sponsor'].isnull(), 'rep_sponsor'] = 0
         all_sponsored['max_sponsor'] = all_sponsored['rep_sponsor'].max()
         all_sponsored['sponsor_percent'] = (all_sponsored['rep_sponsor']/all_sponsored['max_sponsor'])
         
