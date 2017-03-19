@@ -1898,8 +1898,7 @@ class Performance(object):
         
         if self.chamber.lower() == 'house':
             days_voted = pd.read_sql_query("""
-            SELECT * FROM (
-            SELECT distinct_votes.bioguide_id as b_id, 
+            SELECT distinct_votes.bioguide_id, 
             count(distinct_votes.bioguide_id) as days_at_work
             FROM (
             SELECT DISTINCT bioguide_id, date
@@ -1907,11 +1906,21 @@ class Performance(object):
             where congress = {}
             AND vote != 'Not Voting')
             as distinct_votes
-            GROUP BY bioguide_id)
-            AS days_votes
-            LEFT JOIN congress_bio 
-            ON congress_bio.bioguide_id = days_votes.b_id;
+            GROUP BY bioguide_id;
             """.format(self.congress_num), open_connection())
+
+            find_house = pd.read_sql("""
+            SELECT DISTINCT name,
+            bioguide_id,
+            state, district,
+            party,
+            photo_url
+            FROM congress_bio 
+            WHERE chamber = 'house'
+            AND served_until = 'Present';""", open_connection())
+
+            ## Get 
+            days_voted = pd.merge(find_house, days_voted, how='left', on='bioguide_id')
 
             # LEFT JOIN congress_bio 
             # ON congress_bio.bioguide_id = days_voted.b_id
@@ -1956,9 +1965,10 @@ class Performance(object):
             AND served_until = 'Present';""", open_connection())
 
             find_senator['last_name'] = find_senator['name'].apply(lambda x: x.split(',')[0])
-            days_voted = pd.merge(days_voted, find_senator, how='left', on=['state', 'last_name'])
+            days_voted = pd.merge(find_senator, days_voted, how='left', on=['state', 'last_name'])
 
         ## Get percent
+        days_voted.loc[days_voted['days_at_work'].isnull(), 'days_at_work'] = 0
         days_voted.loc[:, 'total_work_days'] = vote_dates.loc[0, 'total_work_days']
         days_voted['percent_at_work'] = (days_voted['days_at_work']/
                                          days_voted['total_work_days'])
@@ -3325,6 +3335,14 @@ class Search(object):
                         search_term_dist = str(us.states.lookup(search_term_dist)).lower()
                     except:
                         'dont change it'
+                        
+                    x = search_term_dist.split(' ')
+                    search_term_query = ''
+                    for i in range(len(x)):
+                        search_term_query += """AND (lower(name) ilike '%' || '{}' || '%'
+                        OR lower(state) ilike '%' || '{}' || '%'
+                        OR lower(party) ilike '%' || '{}' || '%') """.format(x[i], x[i], x[i])
+                        
                     return pd.read_sql_query("""
                     SELECT name,
                     bioguide_id,
@@ -3335,14 +3353,10 @@ class Search(object):
                     photo_url
                     FROM congress_bio
                     WHERE served_until = 'Present'
-                    AND (lower(name) ilike '%' || '{}' || '%'
-                    OR lower(state) ilike '%' || '{}' || '%'
-                    OR lower(party) ilike '%' || '{}' || '%')
+                    {}
                     AND ({})
                     """.format(
-                        search_term_dist,
-                        search_term_dist,
-                        search_term_dist,
+                        search_term_query,
                         dist_search[4:]), open_connection()).to_dict(orient='records')
                 else:
                     return pd.read_sql_query("""
@@ -3368,7 +3382,14 @@ class Search(object):
                 search_term = str(us.states.lookup(search_term)).lower()
             except:
                 'dont change it'
-
+            
+            x = search_term.split(' ')
+            search_term_query = ''
+            for i in range(len(x)):
+                search_term_query += """AND (lower(name) ilike '%' || '{}' || '%'
+                OR lower(state) ilike '%' || '{}' || '%'
+                OR lower(party) ilike '%' || '{}' || '%') """.format(x[i], x[i], x[i])
+                
             return pd.read_sql_query("""
             SELECT name,
             bioguide_id,
@@ -3379,13 +3400,9 @@ class Search(object):
             photo_url
             FROM congress_bio
             WHERE served_until = 'Present'
-            AND (lower(name) ilike '%' || '{}' || '%'
-            OR lower(state) ilike '%' || '{}' || '%'
-            OR lower(party) ilike '%' || '{}' || '%')
+            {}
             """.format(
-                search_term,
-                search_term,
-                search_term
+                search_term_query
                 ), open_connection()).to_dict(orient='records')
         except:
             'wtf'
