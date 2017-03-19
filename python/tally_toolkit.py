@@ -2100,10 +2100,33 @@ class Performance(object):
 
         self.rep_sponsor_metrics = all_sponsored
 
+    def search(self):
+        search_term = sanitize(self.search_term.lower())
+
+        return pd.read_sql_query("""
+        SELECT name,
+        bioguide_id,
+        state,
+        district,
+        party,
+        chamber
+        FROM congress_bio
+        WHERE served_until = 'Present'
+        AND (lower(name) ilike '%' || '{}' || '%'
+        OR lower(state) ilike '%' || '{}' || '%'
+        OR lower(party) ilike '%' || '{}' || '%')
+        """.format(
+            search_term,
+            search_term,
+            search_term,
+            search_term
+            ), open_connection()).to_dict(orient='records')
+
     
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
                 rep_votes_metrics=None, rep_sponsor_metrics=None,
-                chamber=None, membership_stats_df=None, policy_area_df=None):
+                chamber=None, membership_stats_df=None, policy_area_df=None,
+                search_term=None):
         self.congress_num = congress_num
         self.bioguide_id = bioguide_id
         self.days_voted = days_voted
@@ -2112,6 +2135,7 @@ class Performance(object):
         self.chamber = chamber
         self.membership_stats_df = membership_stats_df
         self.policy_area_df = policy_area_df
+        self.search_term = search_term
 
 class Senate_colleciton(object):
     """

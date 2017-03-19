@@ -413,6 +413,21 @@ def policy_areas():
         ## If returns no data
         return jsonify(results=False)
 
+## Return policy stats
+@app.route("/search", methods=["POST"])
+def search():
+    user_search = tally_toolkit.Performance()
+    try:
+        data = json.loads(request.data.decode())
+        user_search.search_term = data['search_term']
+    except:
+        user_search.search_term = request.form['search_term']
+    try:
+        return jsonify(results=tally_toolkit.Performance.search(user_search))
+    except:
+        ## If returns no data
+        return jsonify(results=[])
+
 
 if __name__ == '__main__':
     ## app.run is to run with flask
