@@ -58,8 +58,8 @@ def create_user():
         user.password = tally_toolkit.sanitize(data['password'])
         user.first_name = tally_toolkit.sanitize(data['first_name'])
         user.last_name = tally_toolkit.sanitize(data['last_name'])
-        user.gender = tally_toolkit.sanitize(data['gender'])
-        user.dob = tally_toolkit.sanitize(data['dob'])
+        # user.gender = tally_toolkit.sanitize(data['gender'])
+        # user.dob = tally_toolkit.sanitize(data['dob'])
         user.street = tally_toolkit.sanitize(data['street'].replace("'", ''))
         user.zip_code = tally_toolkit.sanitize(data['zip_code'])
 
@@ -69,12 +69,15 @@ def create_user():
         user.password = tally_toolkit.sanitize(request.form['password'])
         user.first_name = tally_toolkit.sanitize(request.form['first_name'])
         user.last_name = tally_toolkit.sanitize(request.form['last_name'])
-        user.gender = tally_toolkit.sanitize(request.form['gender'])
-        user.dob = tally_toolkit.sanitize(request.form['dob'])
+        # user.gender = tally_toolkit.sanitize(request.form['gender'])
+        # user.dob = tally_toolkit.sanitize(request.form['dob'])
         user.street = tally_toolkit.sanitize(request.form['street'].replace("'", ''))
         user.zip_code = tally_toolkit.sanitize(request.form['zip_code'])
 
     #### Validate
+
+    user.gender = "None"
+    user.dob = '1970-01-01'
 
     ## DOB
     try: 
