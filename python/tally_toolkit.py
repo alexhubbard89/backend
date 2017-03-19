@@ -109,8 +109,12 @@ class user_info(object):
         df.loc[0, 'city'] = str(zipcode['City'].lower().title())
         df.loc[0, 'state_short'] = str(zipcode['State'])
         df.loc[0, 'state_long'] = str(us.states.lookup(df.loc[0, 'state_short']))
-        df.loc[0, 'district'] = user_info.get_district_from_address(self, df.loc[0, 'city'], df.loc[0, 'state_short'],
-                                                          df.loc[0, 'state_long'])
+
+        self.city = df.loc[0, 'city']
+        self.state_short = df.loc[0, 'state_short']
+        self.state_long = df.loc[0, 'state_long']
+
+        df.loc[0, 'district'] = user_info.get_district_from_address(self)
 
         return df
 
@@ -163,11 +167,8 @@ class user_info(object):
         connection.close()
         return user_made    
 
-    def get_district_from_address(self, city, state_short, state_long):
-        import requests
-        import us
-
-        state = '{}{}'.format(state_short, state_long)
+    def get_district_from_address(self):
+        state = '{}{}'.format(self.state_short, self.state_long)
 
         s = requests.Session()
         s.auth = ('user', 'pass')
@@ -177,13 +178,13 @@ class user_info(object):
         url = 'http://ziplook.house.gov/htbin/findrep?ADDRLK'
         form_data = {
             'street': self.street,
-            'city': city,
+            'city': self.city,
             'state': state,
             'submit': 'FIND YOUR REP',
         }
 
         response = requests.request(method='POST', url=url, data=form_data, headers=headers)
-        district = str(response.content.split('src="/zip/pictures/{}'.format(state_short.lower()))[1].split('_')[0])
+        district = str(response.content.split('src="/zip/pictures/{}'.format(self.state_short.lower()))[1].split('_')[0])
         return int(district)
     
     def search_email(self):
@@ -379,7 +380,7 @@ class user_info(object):
     def __init__(self, email=None, password=None, password_match=False, first_name=None,
                 last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None,
                 state_long=None, district=None, bioguide_id_to_search=None, chamber=None,
-                address_check=None, return_rep_list=None):
+                address_check=None, return_rep_list=None, city=None, state_short=None):
         self.email = email
         self.password = password
         self.password_match = password_match
@@ -396,6 +397,8 @@ class user_info(object):
         self.chamber = chamber
         self.address_check = address_check
         self.return_rep_list = return_rep_list
+        self.city = city
+        self.state_short = state_short
 
 
 class vote_collector(object):
@@ -2108,76 +2111,6 @@ class Performance(object):
 
         self.rep_sponsor_metrics = all_sponsored
 
-    def search(self):
-        search_term = sanitize(self.search_term.lower())
-        
-        if 'district' in search_term:
-            search_term = search_term.replace('district', '')
-            num = []
-            [num.append(int(s)) for s in search_term.split() if s.isdigit()]
-            if len(num) > 0:
-                dist_search = ''
-                for i in range(len(num)):
-                    search_term = search_term.replace(str(num[i]), '')
-                    dist_search += " OR district = {} ".format(num[i])
-                search_term = search_term.strip(' ')
-                if len(search_term) > 0:
-                    return pd.read_sql_query("""
-                    SELECT name,
-                    bioguide_id,
-                    state,
-                    district,
-                    party,
-                    chamber
-                    FROM congress_bio
-                    WHERE served_until = 'Present'
-                    AND (lower(name) ilike '%' || '{}' || '%'
-                    OR lower(state) ilike '%' || '{}' || '%'
-                    OR lower(party) ilike '%' || '{}' || '%')
-                    AND ({})
-                    """.format(
-                        search_term,
-                        search_term,
-                        search_term,
-                        dist_search[4:]), open_connection()).to_dict(orient='records')
-                else:
-                    return pd.read_sql_query("""
-                    SELECT name,
-                    bioguide_id,
-                    state,
-                    district,
-                    party,
-                    chamber
-                    FROM congress_bio
-                    WHERE served_until = 'Present'
-                    AND ({})
-                    """.format(
-                        dist_search[4:]), open_connection()).to_dict(orient='records')
-                    
-                    
-                    
-                return len(search_term), num
-            else:
-                search_term = search_term.strip(' ')
-
-        return pd.read_sql_query("""
-        SELECT name,
-        bioguide_id,
-        state,
-        district,
-        party,
-        chamber
-        FROM congress_bio
-        WHERE served_until = 'Present'
-        AND (lower(name) ilike '%' || '{}' || '%'
-        OR lower(state) ilike '%' || '{}' || '%'
-        OR lower(party) ilike '%' || '{}' || '%')
-        """.format(
-            search_term,
-            search_term,
-            search_term
-            ), open_connection()).to_dict(orient='records')
-
     
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
                 rep_votes_metrics=None, rep_sponsor_metrics=None,
@@ -2191,7 +2124,6 @@ class Performance(object):
         self.chamber = chamber
         self.membership_stats_df = membership_stats_df
         self.policy_area_df = policy_area_df
-        self.search_term = search_term
 
 class Senate_colleciton(object):
     """
@@ -3335,3 +3267,187 @@ class Ideology(object):
         self.master_ideology = master_ideology
         self.partisan_bills_only = partisan_bills_only
         self.ideology_stats_by_rep_sums = ideology_stats_by_rep_sums
+
+class Search(object):
+    """
+    This class will be used to take user input
+    and search for reps.
+    
+    Types of search:
+    State
+    Name
+    District
+    Zip Code
+    And combinations
+    
+    """
+    
+    def search(self):
+        search_term = sanitize(str(self.search_term).lower())
+
+        #### Is number a zipcode
+        try:
+            ## remove word zipcode and strip empty space
+            search_term_zip = search_term.replace('zip', '').replace('code', '').strip(' ')
+
+            ## length of term == 5
+            if len(search_term_zip) == 5:
+                try:
+                    ## can it convert to number
+                    self.zip_code = int(search_term_zip)
+                    Search.check_zip_code(self)
+                    if self.zip_code_check == True:
+                        return Search.find_dist_by_zip(self).to_dict(orient='records')
+                except:
+                    "move on"
+                
+        except:
+            "move on"
+            
+        try:
+            search_term_dist = search_term.replace('district', '')
+            num = []
+            [num.append(int(s)) for s in search_term_dist.split() if s.isdigit()]
+            if len(num) > 0:
+                dist_search = ''
+                for i in range(len(num)):
+                    search_term_dist = search_term_dist.replace(str(num[i]), '')
+                    dist_search += " OR district = {} ".format(num[i])
+                search_term_dist = search_term_dist.strip(' ')
+                if len(search_term_dist) > 0:
+                    try:
+                        search_term_dist = str(us.states.lookup(search_term_dist)).lower()
+                    except:
+                        'dont change it'
+                    return pd.read_sql_query("""
+                    SELECT name,
+                    bioguide_id,
+                    state,
+                    district,
+                    party,
+                    chamber
+                    FROM congress_bio
+                    WHERE served_until = 'Present'
+                    AND (lower(name) ilike '%' || '{}' || '%'
+                    OR lower(state) ilike '%' || '{}' || '%'
+                    OR lower(party) ilike '%' || '{}' || '%')
+                    AND ({})
+                    """.format(
+                        search_term_dist,
+                        search_term_dist,
+                        search_term_dist,
+                        dist_search[4:]), open_connection()).to_dict(orient='records')
+                else:
+                    return pd.read_sql_query("""
+                    SELECT name,
+                    bioguide_id,
+                    state,
+                    district,
+                    party,
+                    chamber
+                    FROM congress_bio
+                    WHERE served_until = 'Present'
+                    AND ({})
+                    """.format(
+                        dist_search[4:]), open_connection()).to_dict(orient='records')
+
+            """
+            If you make it here then 
+            none of the other stuff worked.
+            Just search what you originally got.
+            """
+
+            return pd.read_sql_query("""
+            SELECT name,
+            bioguide_id,
+            state,
+            district,
+            party,
+            chamber
+            FROM congress_bio
+            WHERE served_until = 'Present'
+            AND (lower(name) ilike '%' || '{}' || '%'
+            OR lower(state) ilike '%' || '{}' || '%'
+            OR lower(party) ilike '%' || '{}' || '%')
+            """.format(
+                search_term,
+                search_term,
+                search_term
+                ), open_connection()).to_dict(orient='records')
+        except:
+            'wtf'
+    
+    def check_zip_code(self):
+        url = "https://maps.googleapis.com/maps/api/geocode/json?address={}".format(str(self.zip_code))
+        r = requests.get(url)
+        if r.status_code == 200:
+            try:
+                r.json()['results'][0]['partial_match']
+                self.zip_code_check = "Bad address"
+            except:
+                """Address is good"""
+                self.zip_code_check = True
+        else:
+            print "Bad request from Google on Search"
+            self.zip_code_check = "Bad request"
+            
+    def find_dist_by_zip(self):
+
+            s = requests.Session()
+            s.auth = ('user', 'pass')
+            headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36',
+            }
+            url = 'http://ziplook.house.gov/htbin/findrep?ZIP={}&Submit=FIND+YOUR+REP+BY+ZIP'.format(self.zip_code)
+            r = requests.get(url=url, headers=headers)
+            page = BeautifulSoup(r.content, 'lxml')
+            possible_reps = str(page.findAll('div', id='PossibleReps')[0])
+
+            district_info = pd.DataFrame()
+
+            for i in range(1, len(possible_reps.split('/zip/pictures/'))):
+                state_dist = possible_reps.split('/zip/pictures/')[i].split('_')[0]
+                split_sd = re.split('(\d+)', state_dist)
+                for j in range(len(split_sd)):
+                    if j == 0:
+                        ## Letters is state short
+                        state_short = str(split_sd[j])
+                        district_info.loc[i, 'state_short'] = state_short
+                        state_long = str(us.states.lookup(state_short))
+                        district_info.loc[i, 'state_long'] = state_long
+                    elif j == 1:
+                        ## Numbers is district number
+                        district_num = int(split_sd[j])
+                        district_info.loc[i, 'district_num'] = district_num
+
+            dist = district_info.reset_index(drop=True)
+
+            dist_query = ''
+            for i in range(len(dist)):
+                if i != 0:
+                    dist_query += " OR (state = '{}' AND district ='{}')".format(
+                        dist.loc[i, 'state_long'], int(dist.loc[i, 'district_num']))
+                if i == 0:
+                    dist_query += "(state = '{}' AND district ='{}')".format(
+                        dist.loc[i, 'state_long'], int(dist.loc[i, 'district_num']))
+
+
+            sql_query = """
+            SELECT distinct name, 
+            bioguide_id, 
+            state, 
+            district, 
+            party, 
+            chamber,
+            photo_url
+            FROM congress_bio
+            WHERE (({})
+            AND served_until = 'Present')
+            OR (state = '{}' AND served_until = 'Present' AND chamber = 'senate')""".format(dist_query, dist.loc[i, 'state_long'])
+
+            return pd.read_sql_query(sql_query, open_connection())
+    
+    
+    def __init__(self, search_term=None, zip_code=None):
+        self.search_term = search_term
+        self.zip_code = zip_code
