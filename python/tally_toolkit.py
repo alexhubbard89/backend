@@ -1038,62 +1038,62 @@ class sponsorship_collection(object):
         ## Create url path
         r = requests.get('{}/cosponsors'.format(self.search_url))
         page = BeautifulSoup(r.content, "lxml")
+        # try:
+        tr_page = page.find('div', class_='overview_wrapper bill').find_all('tr')
+        for i in range(len(tr_page)):
+            if 'Sponsor:' in tr_page[i].text:
+                sponsor = tr_page[i].find('a').get('href').split('/')[-1]
+        sponsors_df = pd.DataFrame([self.search_url, sponsor]).transpose()
+        sponsors_df.columns = ['url', 'bioguide_id']
+
         try:
-            tr_page = page.find('div', class_='overview_wrapper bill').find_all('tr')
-            for i in range(len(tr_page)):
-                if 'Sponsor:' in tr_page[i].text:
-                    sponsor = tr_page[i].find('a').get('href').split('/')[-1]
-            sponsors_df = pd.DataFrame([self.search_url, sponsor]).transpose()
-            sponsors_df.columns = ['url', 'bioguide_id']
+            ## If there are cosponsors
+            cosponsors_id = []
+            cosponsors_name = []
+            cosponsors_date = []
 
-            try:
-                ## If there are cosponsors
-                cosponsors_id = []
-                cosponsors_name = []
-                cosponsors_date = []
+            loop_max = len(page.find_all('div', class_='col2_lg basic-search-results nav-on')[0].find_all('td', class_='date'))
+            date_split = page.find_all('div', class_='col2_lg basic-search-results nav-on')[0]
 
-                loop_max = len(page.find_all('div', class_='col2_lg basic-search-results nav-on')[0].find_all('td', class_='date'))
-                date_split = page.find_all('div', class_='col2_lg basic-search-results nav-on')[0]
-
-                for i in range(1, loop_max):
-                    cosponsors_id.append(str(date_split.find_all('a', target='_blank')[i].get('href').split('/')[-1]))
-                    cosponsors_name.append(str(str(date_split.find_all('a', target='_blank')[i].text)))
-                    cosponsors_date.append(str(date_split.find_all('td', class_='date')[i].text))
-            except:
-                "either nothing or something weird"
-
-            try:
-                cosponsor_df = pd.DataFrame([cosponsors_id, cosponsors_name, cosponsors_date]).transpose()
-                cosponsor_df.columns = ['bioguide_id', 'member_full', 'date_cosponsored']
-
-                sponsors_df.loc[:, 'cosponsor_bioguide_id'] = pd.Series(list(cosponsor_df['bioguide_id']))
-                sponsors_df.set_value(0, 'cosponsor_bioguide_id', (list(cosponsor_df['bioguide_id'])))
-
-                sponsors_df.loc[:, 'cosponsor_member_full'] = pd.Series(list(cosponsor_df['member_full']))
-                sponsors_df.set_value(0, 'cosponsor_member_full', (list(cosponsor_df['member_full'])))
-
-                sponsors_df.loc[:, 'date_cosponsored'] = pd.Series(list(cosponsor_df['date_cosponsored']))
-                sponsors_df.set_value(0, 'date_cosponsored', (list(cosponsor_df['date_cosponsored'])))
-
-                ## Remove single quotes.
-                ## I tried in single data collection but they still showed up
-                sponsors_df.loc[:, 'cosponsor_bioguide_id'] = sponsors_df.loc[:, 'cosponsor_bioguide_id'].apply(lambda x: str(x).replace("'", ""))
-                sponsors_df.loc[:, 'cosponsor_member_full'] = sponsors_df.loc[:, 'cosponsor_member_full'].apply(lambda x: str(x).replace("'", ""))
-                sponsors_df.loc[:, 'date_cosponsored'] = sponsors_df.loc[:, 'date_cosponsored'].apply(lambda x: str(x).replace("'", ""))
-            except:
-                ## No cosponsors
-                sponsors_df.loc[0, 'cosponsor_bioguide_id'] = None
-                sponsors_df.loc[0, 'cosponsor_member_full'] = None
-                sponsors_df.loc[0, 'date_cosponsored'] = None
+            for i in range(1, loop_max):
+                cosponsors_id.append(str(date_split.find_all('a', target='_blank')[i].get('href').split('/')[-1]))
+                cosponsors_name.append(str(str(date_split.find_all('a', target='_blank')[i].text)))
+                cosponsors_date.append(str(date_split.find_all('td', class_='date')[i].text))
         except:
-            """There was no sponsor. 
-            Rare but not impossible."""
-            sponsor = None
-            sponsors_df = pd.DataFrame([self.search_url, sponsor]).transpose()
-            sponsors_df.columns = ['url', 'bioguide_id']
+            "either nothing or something weird"
+
+        try:
+            cosponsor_df = pd.DataFrame([cosponsors_id, cosponsors_name, cosponsors_date]).transpose()
+            cosponsor_df.columns = ['bioguide_id', 'member_full', 'date_cosponsored']
+
+            sponsors_df.loc[:, 'cosponsor_bioguide_id'] = pd.Series(list(cosponsor_df['bioguide_id']))
+            sponsors_df.set_value(0, 'cosponsor_bioguide_id', (list(cosponsor_df['bioguide_id'])))
+
+            sponsors_df.loc[:, 'cosponsor_member_full'] = pd.Series(list(cosponsor_df['member_full']))
+            sponsors_df.set_value(0, 'cosponsor_member_full', (list(cosponsor_df['member_full'])))
+
+            sponsors_df.loc[:, 'date_cosponsored'] = pd.Series(list(cosponsor_df['date_cosponsored']))
+            sponsors_df.set_value(0, 'date_cosponsored', (list(cosponsor_df['date_cosponsored'])))
+
+            ## Remove single quotes.
+            ## I tried in single data collection but they still showed up
+            sponsors_df.loc[:, 'cosponsor_bioguide_id'] = sponsors_df.loc[:, 'cosponsor_bioguide_id'].apply(lambda x: str(x).replace("'", ""))
+            sponsors_df.loc[:, 'cosponsor_member_full'] = sponsors_df.loc[:, 'cosponsor_member_full'].apply(lambda x: str(x).replace("'", ""))
+            sponsors_df.loc[:, 'date_cosponsored'] = sponsors_df.loc[:, 'date_cosponsored'].apply(lambda x: str(x).replace("'", ""))
+        except:
+            ## No cosponsors
             sponsors_df.loc[0, 'cosponsor_bioguide_id'] = None
             sponsors_df.loc[0, 'cosponsor_member_full'] = None
             sponsors_df.loc[0, 'date_cosponsored'] = None
+        # except:
+        #     """There was no sponsor. 
+        #     Rare but not impossible."""
+        #     sponsor = None
+        #     sponsors_df = pd.DataFrame([self.search_url, sponsor]).transpose()
+        #     sponsors_df.columns = ['url', 'bioguide_id']
+        #     sponsors_df.loc[0, 'cosponsor_bioguide_id'] = None
+        #     sponsors_df.loc[0, 'cosponsor_member_full'] = None
+        #     sponsors_df.loc[0, 'date_cosponsored'] = None
 
         return sponsors_df
     
@@ -1182,12 +1182,18 @@ class sponsorship_collection(object):
 
         print 'Collect sponsorship data :P'
         master_sponsors = pd.DataFrame()
+        not_collect = 0
         for url in unique_legislation:
             self.search_url = url
-            master_sponsors = master_sponsors.append(sponsorship_collection.get_sponsor_data(self))
+            try:
+                master_sponsors = master_sponsors.append(sponsorship_collection.get_sponsor_data(self))
+            except:
+                print 'bad url: {}'.format(self.search_url)
+                not_collect += 1
         
         self.master_sponsors = master_sponsors.reset_index(drop=True)
         print 'To the database!'
+        print 'Something was wrong collecting {} bills'.format(not_collect)
         sponsorship_collection.sponsor_to_sql(self)
         
     def __init__(self, search_url=None, master_sponsors=None, new_data=None, updated_data=None,
