@@ -1,5 +1,5 @@
 import imp
-tally_toolkit = imp.load_source('module', '/Users/Alexanderhubbard/Documents/projects/backend/python/tally_toolkit.py')
+tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
 
 sponsorship_data = tally_toolkit.sponsorship_collection()
 sponsorship_data.congress_search = 115
