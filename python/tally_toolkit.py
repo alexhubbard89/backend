@@ -2610,8 +2610,8 @@ class Ideology(object):
             WHERE ideology_to_predict = '{}'""".format(self.ideology.lower()),
                                                            open_connection())
         
-        predictive_legislation_sql_house = predictive_legislation_sql.loc[predictive_legislation_sql['chamber'] == 'house']
-        predictive_legislation_sql_senate = predictive_legislation_sql.loc[predictive_legislation_sql['chamber'] == 'senate']
+        predictive_legislation_sql_house = predictive_legislation_sql.loc[predictive_legislation_sql['chamber'] == 'house'].reset_index(drop=True)
+        predictive_legislation_sql_senate = predictive_legislation_sql.loc[predictive_legislation_sql['chamber'] == 'senate'].reset_index(drop=True)
         master_df = pd.DataFrame()
         ## Build query to find bills that are predictive   
         if len(predictive_legislation_sql_house):
@@ -3000,9 +3000,19 @@ class Ideology(object):
                 WHERE lower(policy_area) ilike '%' || 'environmental protection' || '%';""", open_connection())
         elif self.ideology.lower() == 'second amendment':
             df = pd.read_sql_query("""SELECT * FROM all_legislation
-                        WHERE lower(title_description) ilike '%' || 'second amendment' || '%'
-                        OR lower(title_description) ilike '%' || 'gun' || '%'
-                        OR lower(title_description) ilike '%' || 'firearm' || '%';""", open_connection())
+                WHERE lower(title_description) ilike '%' || 'second amendment' || '%'
+                OR lower(title_description) ilike '%' || 'gun' || '%'
+                OR lower(title_description) ilike '%' || 'firearm' || '%';""", open_connection())
+        elif self.ideology.lower() == 'obamacare':
+            df = pd.read_sql_query("""SELECT * FROM all_legislation
+                WHERE lower(title_description) ilike '%' || 'obamacare' || '%'
+                OR lower(title_description) ilike '%' || 'affordable care act' || '%'
+                OR lower(title_description) ilike '%' || 'individual mandate' || '%'
+                OR lower(title_description) ilike '%' || 'medicare prescription drug price negotiation act' || '%'
+                OR lower(title_description) ilike '%' || 'children''s health insurance program reauthorization act' || '%'
+                OR lower(title_description) ilike '%' || 'family smoking prevention and tobacco control act' || '%'
+                OR lower(title_description) ilike '%' || 'health outcomes, planning, and education for alzheimer''s act' || '%'
+                ;""", open_connection())
         else:
             print 'incorrect ideology'
             return

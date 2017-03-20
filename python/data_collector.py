@@ -106,7 +106,7 @@ try:
 except:
     bad_collection += """\n\tSenate Votes"""
 
-to_classify = ['women and minority rights', 'immigration', 'abortion', 'environmental protection', 'second amendment']
+to_classify = ['women and minority rights', 'immigration', 'abortion', 'environmental protection', 'second amendment', 'obamacare']
 
 for ideology_category in to_classify:
     print 'Classify ideology - {}'.format(ideology_category)
