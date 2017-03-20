@@ -3344,7 +3344,7 @@ class Search(object):
                         OR lower(party) ilike '%' || '{}' || '%') """.format(x[i], x[i], x[i])
                         
                     return pd.read_sql_query("""
-                    SELECT name,
+                    SELECT DISTINCT name,
                     bioguide_id,
                     state,
                     district,
@@ -3360,7 +3360,7 @@ class Search(object):
                         dist_search[4:]), open_connection()).to_dict(orient='records')
                 else:
                     return pd.read_sql_query("""
-                    SELECT name,
+                    SELECT DISTINCT name,
                     bioguide_id,
                     state,
                     district,
@@ -3391,7 +3391,7 @@ class Search(object):
                 OR lower(party) ilike '%' || '{}' || '%') """.format(x[i], x[i], x[i])
                 
             return pd.read_sql_query("""
-            SELECT name,
+            SELECT DISTINCT name,
             bioguide_id,
             state,
             district,
