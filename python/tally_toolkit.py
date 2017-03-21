@@ -211,14 +211,20 @@ class user_info(object):
             return "user does not exist"
         
     def get_user_data(self):
+        if self.user_id != None:
+            sql_command = """
+            select * from  user_tbl
+            where user_id = '{}'""".format(self.user_id)
+
+            user_results = pd.read_sql_query(sql_command, open_connection())
+            return user_results[['user_id', 'city', 'state_short', 'state_long', 'first_name', 'last_name', 'district']]
+
         if self.password_match == True:
-            connection = open_connection()
             sql_command = """
             select * from  user_tbl
             where email = '{}'""".format(self.email)
 
-            user_results = pd.read_sql_query(sql_command, connection)
-            connection.close()
+            user_results = pd.read_sql_query(sql_command, open_connection())
             return user_results[['user_id', 'city', 'state_short', 'state_long', 'first_name', 'last_name', 'district']]
         elif self.password_match == False:
             return "Check credentials frist"
@@ -380,7 +386,8 @@ class user_info(object):
     def __init__(self, email=None, password=None, password_match=False, first_name=None,
                 last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None,
                 state_long=None, district=None, bioguide_id_to_search=None, chamber=None,
-                address_check=None, return_rep_list=None, city=None, state_short=None):
+                address_check=None, return_rep_list=None, city=None, state_short=None,
+                user_id=None):
         self.email = email
         self.password = password
         self.password_match = password_match
@@ -399,6 +406,7 @@ class user_info(object):
         self.return_rep_list = return_rep_list
         self.city = city
         self.state_short = state_short
+        self.user_id = user_id
 
 
 class vote_collector(object):
