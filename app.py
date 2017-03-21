@@ -30,22 +30,39 @@ def index():
 def login():
     user = tally_toolkit.user_info()
     try:
-        data = json.loads(request.data.decode())
-        user.email = tally_toolkit.sanitize(data['email'])
-        user.password = tally_toolkit.sanitize(data['password'])
+        ## Try: Search user by ID
+        try:
+            data = json.loads(request.data.decode())
+            user.user_id = tally_toolkit.sanitize(data['user_id'])
+        except:
+            user.user_id = tally_toolkit.sanitize(request.form['user_id'])
+        if user.user_id != None:
+            try:
+                user_data = tally_toolkit.user_info.get_user_data(user)
+                print user_data
+                return jsonify(user_data.to_dict(orient='records')[0])
+            except:
+                error = "Wrong user id"
+                print error
+                return jsonify(results="wrong id")
     except:
-        user.email = tally_toolkit.sanitize(request.form['email'])
-        user.password = tally_toolkit.sanitize(request.form['password'])
-    matched_credentials = tally_toolkit.user_info.search_user(user)
-    if matched_credentials == True:
-        user_data = tally_toolkit.user_info.get_user_data(user)
-        print user_data
-        # return jsonify(user_data.to_dict(orient='records'))
-        return jsonify(user_data.to_dict(orient='records')[0])
-    else:
-        error = "Wrong user name or password"
-        print error
-        return jsonify(results=None)
+    ## Try: Search user by email and password
+        try:
+            data = json.loads(request.data.decode())
+            user.email = tally_toolkit.sanitize(data['email'])
+            user.password = tally_toolkit.sanitize(data['password'])
+        except:
+            user.email = tally_toolkit.sanitize(request.form['email'])
+            user.password = tally_toolkit.sanitize(request.form['password'])
+        matched_credentials = tally_toolkit.user_info.search_user(user)
+        if matched_credentials == True:
+            user_data = tally_toolkit.user_info.get_user_data(user)
+            print user_data
+            return jsonify(user_data.to_dict(orient='records')[0])
+        else:
+            error = "Wrong user name or password"
+            print error
+            return jsonify(results="wrong username/password")
 
 ## Create New User
 @app.route("/new_user", methods=["POST"])
