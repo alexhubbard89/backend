@@ -12,6 +12,8 @@ from bs4 import BeautifulSoup
 from pandas.io.json import json_normalize
 from xmljson import badgerfish as bf
 from xml.etree.ElementTree import fromstring
+from json import dumps
+from xml.etree import ElementTree
 import datetime
 import re
 import us
@@ -994,12 +996,301 @@ class committee_collector(object):
             connection.commit()
 
         connection.close()
+
+    def get_senate_committees(self):
+        """
+        This method will be used to find all
+        of the senate committees and the xml
+        urls for them.
+        """
+        
+        ## Make df to save to
+        master_df = pd.DataFrame()
+        
+        ## Save payload options to send stack to senate.gov
+        ## The senate does a good job trying to blacklist scraper IPs
+        payload = {
+            "Host": "www.mywbsite.fr",
+            "Connection": "keep-alive",
+            "Content-Length": 129,
+            "Origin": "https://www.mywbsite.fr",
+            "X-Requested-With": "XMLHttpRequest",
+            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.52 Safari/536.5",
+            "Content-Type": "application/json",
+            "Accept": "*/*",
+            "Referer": "https://www.mywbsite.fr/data/mult.aspx",
+            "Accept-Encoding": "gzip,deflate,sdch",
+            "Accept-Language": "fr-FR,fr;q=0.8,en-US;q=0.6,en;q=0.4",
+            "Accept-Charset": "ISO-8859-1,utf-8;q=0.7,*;q=0.3",
+            "Cookie": "ASP.NET_SessionId=j1r1b2a2v2w245; GSFV=FirstVisit=; GSRef=https://www.google.fr/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&ved=0CHgQFjAA&url=https://www.mywbsite.fr/&ei=FZq_T4abNcak0QWZ0vnWCg&usg=AFQjCNHq90dwj5RiEfr1Pw; HelpRotatorCookie=HelpLayerWasSeen=0; NSC_GSPOUGS!TTM=ffffffff09f4f58455e445a4a423660; GS=Site=frfr; __utma=1.219229010.1337956889.1337956889.1337958824.2; __utmb=1.1.10.1337958824; __utmc=1; __utmz=1.1337956889.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided)"
+        }
+        headers = {}
+        
+        ## Request url
+        url = 'https://www.senate.gov/committees/membership.htm'
+        r = requests.get(url, data=dumps(payload), headers=headers)
+        page = BeautifulSoup(r.content, 'lxml')
+        
+        ## Split page to dropdown options
+        drop_down_options = page.find_all('select', {"name":"dropDownJump"})[0].find_all('option')
+
+        ## Collect all committees
+        for i in range(1, len(drop_down_options)):
+            master_df.loc[i, 'committee'] = drop_down_options[i].text.replace("'", "")
+            master_df.loc[i, 'url'] = 'https://www.senate.gov{}'.format(drop_down_options[i].get('value')).replace('htm', 'xml')
+            
+        self.senate_urls = master_df.reset_index(drop=True)
+
+    def get_senate_membership(self):
+        """
+        This method gets the membership for each
+        senate committee and subcommittee.
+        """
+        
+        
+        ## Save payload options to send stack to senate.gov
+        ## The senate does a good job trying to blacklist scraper IPs
+        payload = {
+            "Host": "www.mywbsite.fr",
+            "Connection": "keep-alive",
+            "Content-Length": 129,
+            "Origin": "https://www.mywbsite.fr",
+            "X-Requested-With": "XMLHttpRequest",
+            "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.52 Safari/536.5",
+            "Content-Type": "application/json",
+            "Accept": "*/*",
+            "Referer": "https://www.mywbsite.fr/data/mult.aspx",
+            "Accept-Encoding": "gzip,deflate,sdch",
+            "Accept-Language": "fr-FR,fr;q=0.8,en-US;q=0.6,en;q=0.4",
+            "Accept-Charset": "ISO-8859-1,utf-8;q=0.7,*;q=0.3",
+            "Cookie": "ASP.NET_SessionId=j1r1b2a2v2w245; GSFV=FirstVisit=; GSRef=https://www.google.fr/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&ved=0CHgQFjAA&url=https://www.mywbsite.fr/&ei=FZq_T4abNcak0QWZ0vnWCg&usg=AFQjCNHq90dwj5RiEfr1Pw; HelpRotatorCookie=HelpLayerWasSeen=0; NSC_GSPOUGS!TTM=ffffffff09f4f58455e445a4a423660; GS=Site=frfr; __utma=1.219229010.1337956889.1337956889.1337958824.2; __utmb=1.1.10.1337958824; __utmc=1; __utmz=1.1337956889.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided)"
+        }
+        headers = {}
+        
+        try:
+            ## Request url
+            r = requests.get(self.url, data=dumps(payload), headers=headers)
+            page = BeautifulSoup(r.content, 'lxml')
+
+            ## Clean data
+            x = ElementTree.fromstring(r.content)
+            x = bf.data(x)
+            x_normalized = json_normalize(pd.DataFrame(x).loc['committees', 'committee_membership'])
+        
+            ## Return Data
+            membership_df = json_normalize(x_normalized.loc[0, 'members.member'])
+            membership_df['committee'] = x_normalized.loc[0, 'committee_name.$']
+
+            try: 
+                """
+                In this section I'll search for subcommittee membership.
+                I'm going to find all of the subcommittee members,
+                add a column for the overall committee and a column
+                for the subcommittee. I none exist then skip to except
+                and add none. At the end rename the columns.
+                """
+
+                ## Datarame to save to
+                sub_df_master = pd.DataFrame()
+
+                ## Split where subcommittees are
+                search_sub = json_normalize(x_normalized.loc[0, 'subcommittee'])
+
+                ## Loop though all subcommittees to get membership and names.
+                for i in range(len(search_sub)):
+                    sub_df = json_normalize(search_sub.loc[i, 'members.member'])
+                    subcommittee = search_sub.loc[i, 'subcommittee_name.$']
+
+                    sub_df['committee'] = x_normalized.loc[0, 'committee_name.$']
+                    sub_df.loc[:, 'subcommittee'] = subcommittee
+                    sub_df_master = sub_df_master.append(sub_df)
+
+                ## Append all to master and clean column names.
+                membership_df = membership_df.append(sub_df_master)
+                column_names = membership_df.columns.str.strip('.$').str.replace('.', '_')
+                membership_df.columns = [column_names]
+            except:
+                membership_df['subcommittee'] = None
+                column_names = membership_df.columns.str.strip('.$').str.replace('.', '_')
+                membership_df.columns = [column_names]
+
+            ## Change position to leadership and drop members info.
+            ## Obvi they're a member if they show up. I care about
+            ## who is in leadership positions.
+            membership_df.loc[:, 'committee_leadership'] = membership_df.loc[:, 'position']
+            membership_df.loc[membership_df['committee_leadership'] == 'Member', 'committee_leadership'] = None
+            membership_df = membership_df.drop(['position'], 1)
+        
+        except:
+            print 'getting the url except'
+            ## Request url
+            self.url = self.url.replace('xml', 'htm')
+            r = requests.get(self.url, data=dumps(payload), headers=headers)
+            page = BeautifulSoup(r.content, 'lxml')
+            
+            membership_df = pd.DataFrame()
+            committee_name = str(page.find_all('span', class_='contenttitle')[0]).split('<committee_name>')[1].split('</committee_name>')[0]
+            member_section = page.find_all('table', class_='contenttext')
+
+            for i in range(len(member_section)):
+                if "Members:" in member_section[i].text:
+                    split_section = member_section[1].find_all('td', valign="top")           
+
+            each_member = str(split_section[0]).strip('<td nowrap="" valign="top">\n').split('\n\t\t\t\t\t\n\t\t\t\t\t')
+            ## There are two formats
+            had_leadership = False
+            counter = 0
+            ## There's dead space at the end so subtract by 1
+            for k in range(len(each_member)-1):
+                if had_leadership == False:
+                    membership_df.loc[counter, 'name_first'] = each_member[k].split('last>')[1].split('</pub')[0]
+                    membership_df.loc[counter, 'name_last'] = each_member[k].split('first>')[1].split('</pub')[0]
+                    membership_df.loc[counter, 'state'] = each_member[k].split('<state>')[1].split('</state>')[0]
+                    try :
+                        membership_df.loc[counter, 'committee_leadership'] = each_member[k+1].split('<position>')[1].split('</position>')[0]
+                        had_leadership = True
+                    except:
+                        membership_df.loc[counter, 'committee_leadership'] = None
+                    counter += 1
+                elif had_leadership == True:
+                    """If the previous person had leadership
+                    then I only got it from k+1 in the index.
+                    That means this index is still the leadership.
+                    Skip and collect next person."""
+                    had_leadership = False
+
+            each_member = str(split_section[1]).strip('<td nowrap="" valign="top">\n').split('<br/>')
+
+            ## There's dead space at the end so subtract by 1
+            for k in range(len(each_member)-1):
+                membership_df.loc[counter, 'name_first'] = each_member[k].split(',')[0]
+                membership_df.loc[counter, 'name_last'] = each_member[k].split(', ')[1].split(' (')[0]
+                membership_df.loc[counter, 'state'] = each_member[k].split(' (')[1].split(')')[0]
+                try :
+                    membership_df.loc[counter, 'committee_leadership'] = each_member[k].split('<position>')[1].split('</position>')[0]
+                except:
+                    membership_df.loc[counter, 'committee_leadership'] = None
+                counter += 1
+                
+            membership_df['committee'] = committee_name
+            
+        return membership_df.reset_index(drop=True)
+
+    def collect_senate_committee_membership(self):
+        senate_committee_membership = pd.DataFrame()
+
+        for url in self.senate_urls['url']:
+            print url
+            try:
+                self.url = url
+                single_membership = committee_collector.get_senate_membership(self)
+                senate_committee_membership = senate_committee_membership.append(single_membership)
+            except:
+                print 'that url didnt work'
+        senate_committee_membership.loc[senate_committee_membership['subcommittee'].isnull(), 'subcommittee'] = None
+
+        senate_committee_membership['state_short'] = senate_committee_membership['state']
+        senate_committee_membership['state'] = senate_committee_membership['state_short'].apply(lambda x: str(us.states.lookup(x)))
+
+        senators_bio = pd.read_sql_query("""SELECT * FROM congress_bio WHERE served_until = 'Present' and chamber = 'senate';""", open_connection())
+        senators_bio['name'] = senators_bio['name'].str.strip()
+        senators_bio['name_last'] = senators_bio['name'].apply(lambda x: x.split(',')[0])
+
+        mappings_df = pd.DataFrame()
+        x = senate_committee_membership[['name_last', 'state']].drop_duplicates().reset_index(drop=True)
+
+        for i in range(len(x)):
+            name = x.loc[i, 'name_last']
+            state = x.loc[i, 'state']
+
+            bio_search = pd.read_sql_query("""
+            SELECT bioguide_id 
+            FROM congress_bio 
+            WHERE served_until = 'Present' 
+            AND chamber = 'senate'
+            AND name ilike '%' || '{}' || '%'
+            AND state = '{}'
+            """.format(name.split(' ')[0],
+                      state), open_connection())
+
+            mappings_df.loc[i, 'name_last'] = name
+            mappings_df.loc[i, 'state'] = state
+            mappings_df.loc[i, 'bioguide_id'] = bio_search.loc[0,'bioguide_id']
+
+        senate_committee_membership = pd.merge(senate_committee_membership, mappings_df,
+                 how='left', on=['name_last', 'state'])
+        senate_committee_membership = senate_committee_membership[['committee_leadership', 'committee', 'subcommittee', 'bioguide_id']].reset_index(drop=True)
+        
+        self.committee_membership = senate_committee_membership
+
+    def senate_membership_to_sql(self):
+        """
+        This method will be used to clean the collected
+        data and put it into sql.
+        """
+        ## Connect
+        connection = open_connection()
+        cursor = connection.cursor()
+        
+        ## delete 
+        # I'm deleting to make sure we have the most
+        # up-to-date reps. The collection is small
+        # so it's not a bottle next to do this.
+        try:
+            cursor.execute("""DROP TABLE senate_membership;""")
+        except:
+            'table did not exist'
+
+        cursor = connection.cursor()
+        sql_command = """
+            CREATE TABLE senate_membership (
+            committee_leadership varchar(255),
+            committee varchar(255),  
+            subcommittee varchar(255), 
+            bioguide_id varchar(255),
+            UNIQUE (committee, subcommittee, bioguide_id));"""
+
+        cursor.execute(sql_command)
+        connection.commit()
+
+        ## Connect
+        connection = open_connection()
+        cursor = connection.cursor()
+
+        ## Clean columns
+        self.committee_membership.loc[self.committee_membership['committee'].notnull(), 'committee'] = self.committee_membership.loc[self.committee_membership['committee'].notnull(), 'committee'].apply(lambda x: sanitize(x))
+        self.committee_membership.loc[self.committee_membership['subcommittee'].notnull(), 'subcommittee'] = self.committee_membership.loc[self.committee_membership['subcommittee'].notnull(), 'subcommittee'].apply(lambda x: sanitize(x))
+
+        ## Put each row into sql
+        for i in range(len(self.committee_membership)):
+            x = list(self.committee_membership.loc[i,])
+
+            for p in [x]:
+                format_str = """
+                INSERT INTO senate_membership (
+                committee_leadership, 
+                committee, 
+                subcommittee, 
+                bioguide_id)
+                VALUES ('{committee_leadership}', '{committee}', '{subcommittee}', '{bioguide_id}');"""
+
+
+            sql_command = format_str.format(committee_leadership=p[0], committee=p[1], 
+                subcommittee=p[2], bioguide_id=p[3])
+            ## Commit to sql
+            cursor.execute(sql_command)
+            connection.commit()
+
+        connection.close()
     
     
-    def __init__(self, committee_links=None, subcommittee_links=None, all_committee_links=None, committee_membership=None):
+    def __init__(self, committee_links=None, subcommittee_links=None, all_committee_links=None, 
+        committee_membership=None, senate_urls=None, url=None):
         self.committee_links = committee_links
         self.subcommittee_links = subcommittee_links
         self.committee_membership = committee_membership
+        self.senate_urls = senate_urls
+        self.url = url
 
 class sponsorship_collection(object):
     """
