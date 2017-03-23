@@ -128,9 +128,9 @@ for ideology_category in to_classify:
         print 'Put ideology to sql - {}'.format(ideology_category)
         try:
             tally_toolkit.Ideology.put_finalized_ideology_stats_into_sql(ideology_data)
-            good_collection += """\n\tIdeology colection - {}""".format(ideology_category)
+            good_collection += """\n\tIdeology to sql - {}""".format(ideology_category)
         except:
-            bad_collection += """\n\tIdeology classifier - {}""".format(ideology_category)
+            bad_collection += """\n\tIdeology to sql - {}""".format(ideology_category)
 
     except:
         bad_collection += """\n\tIdeology colection - {}""".format(ideology_category)

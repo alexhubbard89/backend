@@ -1283,7 +1283,7 @@ class collect_legislation(object):
 
                 try:
                     page_df.loc[j, 'tracker'] = str(page_list_expanded[j].find_all(
-                        'span', class_='result-item')[3].find(
+                        'span', class_='result-item')[-1].find(
                         'li', class_='selected').text.split('Array')[0])
                 except:
                     page_df.loc[j, 'tracker'] = None
