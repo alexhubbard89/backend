@@ -41,7 +41,7 @@ except:
     bad_collection += """\n\tHouse votes collector"""
 
 try:
-	print 'collect committee data'
+	print 'collect hosue committee data'
 	committee_data = tally_toolkit.committee_collector()
 	tally_toolkit.committee_collector.get_committees(committee_data)
 	tally_toolkit.committee_collector.get_subcommittees(committee_data)
@@ -50,6 +50,16 @@ try:
 	good_collection += """\n\tHouse committee membership"""
 except:
 	bad_collection += """\n\tHouse committee membership"""
+
+try:
+    print 'collect senate committee data'
+    senate_committee_data = tally_toolkit.committee_collector()
+    tally_toolkit.committee_collector.get_senate_committees(senate_committee_data)
+    tally_toolkit.committee_collector.collect_senate_committee_membership(senate_committee_data)
+    tally_toolkit.committee_collector.senate_membership_to_sql(senate_committee_data)
+    good_collection += """\n\tSenate committee membership"""
+except:
+    bad_collection += """\n\tSenate committee membership"""
 
 print 'collect all legislation from this congress'
 """This is different from vote menu data. VM data is only roll call
@@ -135,6 +145,18 @@ for ideology_category in to_classify:
     except:
         bad_collection += """\n\tIdeology colection - {}""".format(ideology_category)
 
+print 'Conduct the daily grading ritual'
+
+try:
+    rep_grades = tally_toolkit.Grade_reps()
+    tally_toolkit.Grade_reps.current_congress_num(rep_grades)
+    tally_toolkit.Grade_reps.total_grade_calc(rep_grades)
+    tally_toolkit.Grade_reps.total_grade_calc(rep_grades)
+    rep_grades.congress_grades.loc[:, 'congress'] = rep_grades.congress
+    tally_toolkit.Grade_reps.grades_to_sql(rep_grades)
+    good_collection += """\n\tGrading"""
+except:
+    bad_collection += """\n\tGrading"""
 
 
 msg['Subject'] = "Data Collection Report"

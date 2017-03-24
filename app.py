@@ -433,7 +433,7 @@ def policy_areas():
         ## If returns no data
         return jsonify(results=False)
 
-## Return policy stats
+## Search shit!
 @app.route("/search", methods=["POST"])
 def search():
     user_search = tally_toolkit.Search()
@@ -447,6 +447,27 @@ def search():
     except:
         ## If returns no data
         return jsonify(results=[])
+
+## Get a reps grade
+@app.route("/rep_grade", methods=["POST"])
+def rep_grade():
+    rep_perfomance = tally_toolkit.Performance()
+    try:
+        data = json.loads(request.data.decode())
+        rep_perfomance.bioguide_id = data['bioguide_id']
+        # rep_perfomance.congress_num = data['congress']
+    except:
+        rep_perfomance.bioguide_id = request.form['bioguide_id']
+        # rep_perfomance.congress_num = request.form['congress']
+
+    ## Get current congress
+    tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    try:
+        tally_toolkit.Performance.get_rep_grade(rep_perfomance)
+        return jsonify(rep_perfomance.rep_grade.to_dict(orient='records')[0])
+    except:
+        ## If returns no data
+        return jsonify(results=False)
 
 
 if __name__ == '__main__':
