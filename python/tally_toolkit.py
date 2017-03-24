@@ -2426,11 +2426,23 @@ class Performance(object):
 
         self.rep_sponsor_metrics = all_sponsored
 
+    def get_rep_grade(self):
+        self.rep_grade = pd.read_sql_query("""
+        SELECT bioguide_id,
+        letter_grade_extra_credit as letter_grade,
+        total_grade_extra_credit as number_grade
+        FROM congress_grades
+        WHERE bioguide_id = '{}'
+        AND congress = {}
+        """.format(
+                self.bioguide_id,
+                int(self.congress_num)), open_connection())
+
     
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
                 rep_votes_metrics=None, rep_sponsor_metrics=None,
                 chamber=None, membership_stats_df=None, policy_area_df=None,
-                search_term=None):
+                search_term=None, rep_grade=None):
         self.congress_num = congress_num
         self.bioguide_id = bioguide_id
         self.days_voted = days_voted
@@ -2439,6 +2451,7 @@ class Performance(object):
         self.chamber = chamber
         self.membership_stats_df = membership_stats_df
         self.policy_area_df = policy_area_df
+        self.rep_grade = rep_grade
 
 class Senate_colleciton(object):
     """
@@ -3790,3 +3803,485 @@ class Search(object):
     def __init__(self, search_term=None, zip_code=None):
         self.search_term = search_term
         self.zip_code = zip_code
+
+class Grade_reps(object):
+
+    def rank_attend(self):
+        days_voted = pd.read_sql_query("""
+        SELECT distinct_votes.bioguide_id, 
+        count(distinct_votes.bioguide_id) as days_at_work
+        FROM (
+        SELECT DISTINCT bioguide_id, date
+        FROM house_votes_tbl
+        where congress = {}
+        AND vote != 'Not Voting')
+        as distinct_votes
+        GROUP BY bioguide_id;
+        """.format(self.congress), open_connection())
+
+        vote_dates = pd.read_sql_query("""
+        SELECT COUNT(DISTINCT(date)) as total_work_days 
+        FROM house_votes_tbl 
+        WHERE congress = {};
+        """.format(self.congress),open_connection())
+
+        days_voted_s = pd.read_sql_query("""
+                    SELECT distinct_votes.last_name,
+                    distinct_votes.state,
+                    COUNT(distinct_votes.last_name) as days_at_work
+                    FROM (SELECT DISTINCT last_name, 
+                    date, state
+                    FROM senator_votes_tbl
+                    WHERE congress = {}
+                    AND vote_cast != 'Not Voting')
+                    AS distinct_votes
+                    GROUP BY last_name, state;""".format(
+                            self.congress),open_connection())
+
+        days_voted_s.loc[:, 'state'] = days_voted_s.loc[:, 'state'].apply(lambda x: str(us.states.lookup(x)))
+
+        vote_dates_s = pd.read_sql_query("""
+            SELECT COUNT(DISTINCT(date)) as total_work_days 
+            FROM senator_votes_tbl 
+            WHERE congress = {};""".format(
+                self.congress), open_connection())
+
+        find_senator = pd.read_sql("""
+        SELECT DISTINCT name,
+        bioguide_id,
+        state, district,
+        party,
+        photo_url
+        FROM congress_bio 
+        WHERE chamber = 'senate';""", open_connection())
+
+        find_senator.loc[:, 'last_name'] = find_senator.loc[:, 'name'].apply(lambda x: x.split(',')[0])
+        days_voted_s = pd.merge(days_voted_s, find_senator, how='left', on=['state', 'last_name']).drop_duplicates(['bioguide_id'])
+
+        days_voted.loc[days_voted['days_at_work'].isnull(), 'days_at_work'] = 0
+        days_voted.loc[:, 'total_work_days'] = vote_dates.loc[0, 'total_work_days']
+        days_voted.loc[:, 'percent_at_work'] = (days_voted['days_at_work']/
+                                         days_voted['total_work_days'])
+        days_voted.loc[:, 'chamber'] = 'house'
+
+        days_voted_s.loc[days_voted_s['days_at_work'].isnull(), 'days_at_work'] = 0
+        days_voted_s.loc[:, 'total_work_days'] = vote_dates_s.loc[0, 'total_work_days']
+        days_voted_s.loc[:, 'percent_at_work'] = (days_voted_s['days_at_work']/
+                                         days_voted_s['total_work_days'])
+        days_voted_s.loc[:, 'chamber'] = 'senate'
+
+        return days_voted.append(days_voted_s).reset_index(drop=True)[['bioguide_id', 'days_at_work', 
+                                                                     'total_work_days', 'percent_at_work', 'chamber']]
+
+    def rank_voting(self):
+        rep_votes = pd.read_sql_query("""
+            SELECT bioguide_id,
+            COUNT(bioguide_id) as rep_votes
+            FROM house_votes_tbl
+            where congress = {}
+            AND vote != 'Not Voting'
+            GROUP BY bioguide_id
+            ;
+            """.format(self.congress), open_connection())
+
+        total_votes = pd.read_sql_query("""
+            SELECT COUNT(DISTINCT(roll_id)) total_votes
+            FROM house_votes_tbl
+            WHERE congress = {};
+            """.format(self.congress), open_connection())
+
+
+        rep_votes_s = pd.read_sql_query("""
+                    SELECT distinct_votes.last_name,
+                    distinct_votes.state,
+                    COUNT(distinct_votes.last_name) as rep_votes
+                    FROM (SELECT last_name, 
+                    date, state
+                    FROM senator_votes_tbl
+                    WHERE congress = {}
+                    AND vote_cast != 'Not Voting')
+                    AS distinct_votes
+                    GROUP BY last_name, state;""".format(
+                            self.congress),open_connection())
+
+        rep_votes_s.loc[:, 'state'] = rep_votes_s.loc[:, 'state'].apply(lambda x: str(us.states.lookup(x)))
+
+        total_votes_s = pd.read_sql_query("""
+            SELECT COUNT(DISTINCT(roll_id)) as total_votes 
+            FROM senator_votes_tbl 
+            WHERE congress = {};""".format(
+                self.congress), open_connection())
+
+        find_senator = pd.read_sql("""
+        SELECT DISTINCT name,
+        bioguide_id,
+        state, district,
+        party,
+        photo_url
+        FROM congress_bio 
+        WHERE chamber = 'senate';""", open_connection())
+
+        find_senator.loc[:, 'last_name'] = find_senator.loc[:, 'name'].apply(lambda x: x.split(',')[0])
+        rep_votes_s = pd.merge(rep_votes_s, find_senator, how='left', on=['state', 'last_name']).drop_duplicates(['bioguide_id'])
+
+
+        ## Get percent
+        rep_votes.loc[rep_votes['rep_votes'].isnull(), 'rep_votes'] = 0
+        rep_votes.loc[:, 'total_votes'] = total_votes.loc[0, 'total_votes']
+        rep_votes.loc[:, 'percent_votes'] = (rep_votes['rep_votes']/
+                                              rep_votes['total_votes'])
+
+        rep_votes_s.loc[rep_votes_s['rep_votes'].isnull(), 'rep_votes'] = 0
+        rep_votes_s.loc[:, 'total_votes'] = total_votes_s.loc[0, 'total_votes']
+        rep_votes_s.loc[:, 'percent_votes'] = (rep_votes_s['rep_votes']/
+                                              rep_votes_s['total_votes'])
+
+        return rep_votes.append(rep_votes_s).reset_index(drop=True)[['bioguide_id', 'rep_votes', 
+                                                                     'total_votes', 'percent_votes']]
+    def rank_bills_made(self):
+        all_sponsored = pd.read_sql_query("""
+            SELECT * FROM
+            (
+            SELECT 
+            bioguide_id,
+            count(bioguide_id) as rep_sponsor
+            FROM(
+            SELECT * FROM
+            (
+            SELECT issue_link, congress
+            FROM all_legislation
+            WHERE cast(congress as int) = {})
+            AS this_congress
+            LEFT JOIN bill_sponsors
+            ON this_congress.issue_link = bill_sponsors.url
+            WHERE bioguide_id != 'None')
+            joined_leg
+            GROUP BY joined_leg.bioguide_id)
+            AS all_sponsor
+            """.format(self.congress), open_connection())
+
+        find_reps = pd.read_sql("""
+            SELECT DISTINCT name,
+            bioguide_id,
+            state, district,
+            party,
+            photo_url,
+            chamber
+            FROM congress_bio;""", open_connection())
+
+        all_sponsored = pd.merge(all_sponsored, find_reps, how='left', on='bioguide_id').drop_duplicates(['bioguide_id'])
+
+        all_sponsored = all_sponsored.sort_values(['rep_sponsor', 'bioguide_id'], 
+                                  ascending=[False, True]).reset_index(drop=True)
+
+        all_sponsored.loc[all_sponsored['rep_sponsor'].isnull(), 'rep_sponsor'] = 0
+        all_sponsored.loc[:, 'max_sponsor'] = all_sponsored['rep_sponsor'].max()
+
+        house_sponsored = all_sponsored.loc[all_sponsored['chamber'] == 'house']
+        sen_sponsored = all_sponsored.loc[all_sponsored['chamber'] == 'senate']
+
+        x = house_sponsored['rep_sponsor']
+        house_sponsored.loc[:, 'sponsor_percent'] = [stats.percentileofscore(x, a, 'weak') for a in x]
+        house_sponsored.loc[:, 'sponsor_percent'] = house_sponsored.loc[:, 'sponsor_percent']/100
+
+        x = sen_sponsored['rep_sponsor']
+        sen_sponsored.loc[:, 'sponsor_percent'] = [stats.percentileofscore(x, a, 'weak') for a in x]
+        sen_sponsored.loc[:, 'sponsor_percent'] = sen_sponsored.loc[:, 'sponsor_percent']/100
+
+        all_sponsored = house_sponsored.append(sen_sponsored)
+        return all_sponsored[['bioguide_id', 'rep_sponsor', 'max_sponsor', 'sponsor_percent']]
+
+    
+    def get_current_leadership(self):
+        self.current_leader_ship = pd.read_sql_query("""
+        SELECT DISTINCT * FROM congress_bio
+        WHERE served_until = 'Present'
+        AND leadership_position != 'None'
+        ;""", open_connection())
+        
+    def committee_membership(self):
+        """
+        Make sure you colect all 'present'
+        congress people. If they don't show up
+        in membership then they don't get
+        a percentile. I can make it zero later,
+        but then it messes up the lower percentile
+        groups.
+        """
+
+        df = pd.read_sql_query("""
+        SELECT DISTINCT bioguide_id,
+        chamber
+        FROM congress_bio
+        WHERE served_until = 'Present'
+        ;""", open_connection())
+
+        house_membership = pd.read_sql_query("""
+        SELECT DISTINCT bioguide_id,
+        count(bioguide_id) memberhip
+        FROM house_membership
+        GROUP BY bioguide_id
+        """, open_connection())
+
+        senate_membership = pd.read_sql_query("""
+        SELECT DISTINCT bioguide_id,
+        count(bioguide_id) memberhip
+        FROM senate_membership
+        GROUP BY bioguide_id
+        """, open_connection())
+
+        ## Join all
+        all_membersip = house_membership.append(senate_membership)
+        df = pd.merge(df, all_membersip, how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
+
+        ## Percentile by chamber
+        x = df.loc[df['chamber'] == 'house', 'memberhip']
+        df.loc[df['chamber'] == 'house', 'memberhip_percent'] = [stats.percentileofscore(x, a, 'weak') for a in x]
+        x = df.loc[df['chamber'] == 'senate', 'memberhip']
+        df.loc[df['chamber'] == 'senate', 'memberhip_percent'] = [stats.percentileofscore(x, a, 'weak') for a in x]
+
+        ## Convert to percent
+        df.loc[:, 'memberhip_percent'] = df.loc[:, 'memberhip_percent']/100
+        self.committee_membership = df
+        
+    def committee_leadership(self):
+        """
+        Make sure you colect all 'present'
+        congress people. If they don't show up
+        in membership then they don't get
+        a percentile. I can make it zero later,
+        but then it messes up the lower percentile
+        groups.
+        """
+
+        df = pd.read_sql_query("""
+        SELECT DISTINCT bioguide_id,
+        chamber
+        FROM congress_bio
+        WHERE served_until = 'Present'
+        ;""", open_connection())
+
+        house_membership = pd.read_sql_query("""
+        SELECT DISTINCT bioguide_id,
+        count(bioguide_id) leadership
+        FROM house_membership
+        WHERE committee_leadership != 'None'
+        GROUP BY bioguide_id
+        """, open_connection())
+
+        senate_membership = pd.read_sql_query("""
+        SELECT DISTINCT bioguide_id,
+        count(bioguide_id) leadership
+        FROM senate_membership
+        WHERE committee_leadership != 'None'
+        GROUP BY bioguide_id
+        """, open_connection())
+
+        ## Join all
+        all_membersip = house_membership.append(senate_membership)
+        df = pd.merge(df, all_membersip, how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
+
+        self.committee_leadership = df
+        
+    def became_law(self):
+        df = pd.read_sql_query("""
+        SELECT * FROM
+            (
+            SELECT issue_link, congress, tracker
+            FROM all_legislation
+            WHERE cast(congress as int) = {})
+            AS this_congress
+            LEFT JOIN bill_sponsors
+            ON this_congress.issue_link = bill_sponsors.url
+            WHERE bioguide_id != 'None'
+        """.format(self.congress), open_connection())
+
+        df = df.loc[df['tracker'] == 'Became Law']
+        df_goruped = df.groupby(['bioguide_id']).count()['tracker'].reset_index(drop=False).sort_values(['tracker'],ascending=False)
+        return df_goruped
+        
+    def total_grade_calc(self): 
+        ## Collect stats
+        attend = Grade_reps.rank_attend(self)
+        voting = Grade_reps.rank_voting(self)
+        sponsor = Grade_reps.rank_bills_made(self)
+        became_law_df = Grade_reps.became_law(self)
+        if self.congress == 115:
+            Grade_reps.get_current_leadership(self)
+            Grade_reps.committee_membership(self)
+            Grade_reps.committee_leadership(self)
+
+        ## Join data
+        total_grades = pd.merge(pd.merge(attend[['bioguide_id', 'chamber', 'percent_at_work']], voting[['bioguide_id', 'percent_votes']],
+                 how='left', on='bioguide_id'),
+                 sponsor[['bioguide_id', 'sponsor_percent']],
+                 how='left', on='bioguide_id').drop_duplicates('bioguide_id')
+        total_grades = pd.merge(total_grades, became_law_df, how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
+        if self.congress == 115:
+            total_grades = pd.merge(total_grades, self.current_leader_ship[['bioguide_id', 'leadership_position']],
+                                    how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
+            total_grades = pd.merge(total_grades, self.committee_membership[['bioguide_id', 'memberhip_percent']],
+                                    how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
+            total_grades = pd.merge(total_grades, self.committee_leadership[['bioguide_id', 'leadership']],
+                                    how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
+
+
+
+        ## Make total grade - No extra credit
+        if self.congress == 115:
+            total_grades['total_grade'] = ((total_grades['percent_at_work'] + 
+                                           total_grades['percent_votes'] + 
+                                           total_grades['sponsor_percent'] +
+                                          total_grades['memberhip_percent'])/4)
+        else:
+            total_grades['total_grade'] = ((total_grades['percent_at_work'] + 
+                                           total_grades['percent_votes'] + 
+                                           total_grades['sponsor_percent'])/3)
+
+        ## Extra Credit: Became Law
+        total_grades.loc[:, 'total_grade_extra_credit'] = (total_grades['tracker'] * .02) + total_grades['total_grade']
+
+        if self.congress == 115:        
+        ## Extra Credit: Leadership
+            total_grades.loc[((total_grades['leadership_position'] != 0) &
+                              (total_grades['leadership_position'] != 'Speaker of the House')), 
+                             'total_grade_extra_credit'] = (total_grades.loc[((total_grades['leadership_position'] != 0) &
+                                                                              (total_grades['leadership_position'] != 'Speaker of the House')), 
+                                                                             'total_grade_extra_credit'] + .05)
+            total_grades.loc[total_grades['chamber'] == 'house', 'total_grade_extra_credit'] = (
+                total_grades.loc[total_grades['chamber'] == 'house', 'total_grade_extra_credit'] +
+                (total_grades.loc[total_grades['chamber'] == 'house', 'leadership']/25))
+            total_grades.loc[total_grades['chamber'] == 'senate', 'total_grade_extra_credit'] = (
+                total_grades.loc[total_grades['chamber'] == 'senate', 'total_grade_extra_credit'] +
+                (total_grades.loc[total_grades['chamber'] == 'senate', 'leadership']/400))
+
+        ## Gaurdrails
+        total_grades.loc[total_grades['total_grade_extra_credit'] > 1, 'total_grade_extra_credit'] = 1
+
+        ## Map to letter grades
+        labels = [ "{0} - {1}".format(i, i + 9) for i in range(0, 110, 10) ]
+        grades = {'100 - 109': 'A', '90 - 99': 'A','80 - 89': 'B','70 - 79': 'C','60 - 69': 'D','50 - 59': 'F',
+                 '40 - 49': 'F','30 - 39': 'F','20 - 29': 'F','10 - 19': 'F','0 - 9': 'F'}
+        total_grades.loc[:, 'letter_grade'] = pd.cut(total_grades['total_grade']*100,range(0, 115, 10), right=False, labels=labels).map(grades)
+        total_grades.loc[:, 'letter_grade_extra_credit'] = pd.cut(total_grades['total_grade_extra_credit']*100,range(0, 115, 10), right=False, labels=labels).map(grades)
+
+        ## Remove speaker of the house from grading
+        if self.congress == 115:
+            total_grades.loc[(total_grades['leadership_position'] == 'Speaker of the House'),
+                            ['total_grade', 'total_grade_extra_credit',
+                            'letter_grade', 'letter_grade_extra_credit']] = None
+
+        self.congress_grades = total_grades.sort_values(['total_grade'],ascending=False).reset_index(drop=True)
+        
+    def grades_to_sql(self):
+
+        connection = open_connection()
+        cursor = connection.cursor()
+
+        self.congress_grades = self.congress_grades[['bioguide_id',
+                                                     'chamber',
+                                                    'congress',
+                                                    'leadership',
+                                                    'leadership_position',
+                                                    'letter_grade',
+                                                    'letter_grade_extra_credit',
+                                                    'memberhip_percent',
+                                                    'percent_at_work',
+                                                    'percent_votes',
+                                                    'sponsor_percent',
+                                                    'total_grade',
+                                                    'total_grade_extra_credit',
+                                                    'tracker']]
+        ## Put data into table
+        for i in range(len(self.congress_grades)):
+            x = list(self.congress_grades.loc[i,])
+
+            for p in [x]:
+                format_str = """
+                INSERT INTO congress_grades (
+                bioguide_id,
+                chamber,
+                congress,
+                leadership,
+                leadership_position,
+                letter_grade,
+                letter_grade_extra_credit,
+                memberhip_percent,
+                percent_at_work,
+                percent_votes,
+                sponsor_percent,
+                total_grade,
+                total_grade_extra_credit,
+                tracker)
+                VALUES ('{bioguide_id}', '{chamber}', '{congress}', '{leadership}',
+                 '{leadership_position}', '{letter_grade}', '{letter_grade_extra_credit}', '{memberhip_percent}', 
+                 '{percent_at_work}', '{percent_votes}', '{sponsor_percent}', '{total_grade}', 
+                 '{total_grade_extra_credit}', '{tracker}');"""
+
+
+                sql_command = format_str.format(bioguide_id=p[0], chamber=p[1], congress=int(p[2]), leadership=int(p[3]),
+                 leadership_position=p[4], letter_grade=p[5], letter_grade_extra_credit=p[6], memberhip_percent=p[7], 
+                 percent_at_work=p[8], percent_votes=p[9], sponsor_percent=p[10], total_grade=p[11], 
+                total_grade_extra_credit=p[12], tracker=int(p[13]))
+
+
+                try:
+                    # Try to insert, if it can't inset then it should update
+                    cursor.execute(sql_command)
+                    connection.commit()
+                except:
+                    connection.rollback()
+                    ## If the update breaks then something is wrong
+                    sql_command = """UPDATE congress_grades 
+                    SET  
+                    chamber='{}', 
+                    leadership='{}',
+                    leadership_position='{}',
+                    letter_grade='{}', 
+                    letter_grade_extra_credit='{}', 
+                    memberhip_percent='{}', 
+                    percent_at_work='{}', 
+                    percent_votes='{}', 
+                    sponsor_percent='{}',
+                    total_grade='{}', 
+                    total_grade_extra_credit='{}', 
+                    tracker='{}'
+                    where (bioguide_id = '{}' AND congress = '{}');""".format(
+                    self.congress_grades.loc[i, 'chamber'],
+                    int(self.congress_grades.loc[i, 'leadership']),
+                    self.congress_grades.loc[i, 'leadership_position'],
+                    self.congress_grades.loc[i, 'letter_grade'],
+                    self.congress_grades.loc[i, 'letter_grade_extra_credit'],
+                    self.congress_grades.loc[i, 'memberhip_percent'],
+                    self.congress_grades.loc[i, 'percent_at_work'],
+                    self.congress_grades.loc[i, 'percent_votes'],
+                    self.congress_grades.loc[i, 'sponsor_percent'],
+                    self.congress_grades.loc[i, 'total_grade'],
+                    self.congress_grades.loc[i, 'total_grade_extra_credit'],
+                    int(self.congress_grades.loc[i, 'tracker']),
+                    self.congress_grades.loc[i, 'bioguide_id'],
+                    int(self.congress_grades.loc[i, 'congress']))
+
+                    cursor.execute(sql_command)
+                    connection.commit()
+
+        ## Close yo shit
+        connection.close()
+
+    def current_congress_num(self):
+        """
+        This method will be used to find the
+        maximum congresss number. The max
+        congress will be the current congress.
+        """
+        
+        cong_num = pd.read_sql_query("""select max(congress) from house_vote_menu;""",open_connection())
+        self.congress = cong_num.loc[0, 'max']
+
+    def __init__(self, current_leader_ship=None, committee_membership=None, committee_leadership=None,
+                congress=None, congress_grades=None):
+        self.current_leader_ship = current_leader_ship
+        self.committee_membership = committee_membership
+        self.committee_leadership = committee_leadership
+        self.congress = congress
+        self.congress_grades = congress_grades

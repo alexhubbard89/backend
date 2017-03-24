@@ -145,6 +145,18 @@ for ideology_category in to_classify:
     except:
         bad_collection += """\n\tIdeology colection - {}""".format(ideology_category)
 
+print 'Conduct the daily grading ritual'
+
+try:
+    rep_grades = tally_toolkit.Grade_reps()
+    tally_toolkit.Grade_reps.current_congress_num(rep_grades)
+    tally_toolkit.Grade_reps.total_grade_calc(rep_grades)
+    tally_toolkit.Grade_reps.total_grade_calc(rep_grades)
+    rep_grades.congress_grades.loc[:, 'congress'] = rep_grades.congress
+    tally_toolkit.Grade_reps.grades_to_sql(rep_grades)
+    good_collection += """\n\tGrading"""
+except:
+    bad_collection += """\n\tGrading"""
 
 
 msg['Subject'] = "Data Collection Report"
