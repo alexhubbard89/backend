@@ -2997,7 +2997,7 @@ class Search(object):
                 search_term_query += """OR (lower(name) ilike '%' || '{}' || '%'
                 OR lower(state) ilike '%' || '{}' || '%'
                 OR lower(party) ilike '%' || '{}' || '%') """.format(x[i], x[i], x[i])
-                
+            
             return pd.read_sql_query("""
             SELECT DISTINCT name,
             bioguide_id,
@@ -3008,9 +3008,9 @@ class Search(object):
             photo_url
             FROM congress_bio
             WHERE served_until = 'Present'
-            AND ({})
+            AND (({})
             """.format(
-                search_term_query
+                search_term_query[4:]
                 ), open_connection()).to_dict(orient='records')
         except:
             'wtf'
