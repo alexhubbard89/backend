@@ -2222,7 +2222,7 @@ class Performance(object):
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
             AND lower(state) != 'american samoa'
-            AND lower(state) != 'norther miriana islands';""", open_connection())
+            AND lower(state) != 'northern miriana islands';""", open_connection())
 
             ## Get 
             days_voted = pd.merge(find_house, days_voted, how='left', on='bioguide_id')
@@ -2320,7 +2320,7 @@ class Performance(object):
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
             AND lower(state) != 'american samoa'
-            AND lower(state) != 'norther miriana islands';""", open_connection())
+            AND lower(state) != 'northern miriana islands';""", open_connection())
 
             rep_votes = pd.merge(find_house, rep_votes, how='left', on='bioguide_id')
             
@@ -2421,7 +2421,7 @@ class Performance(object):
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
             AND lower(state) != 'american samoa'
-            AND lower(state) != 'norther miriana islands';""", open_connection())
+            AND lower(state) != 'northern miriana islands';""", open_connection())
 
         all_sponsored = pd.merge(find_reps, all_sponsored, how='left', on='bioguide_id')
 
@@ -3008,7 +3008,7 @@ class Search(object):
             photo_url
             FROM congress_bio
             WHERE served_until = 'Present'
-            {}
+            AND ({})
             """.format(
                 search_term_query
                 ), open_connection()).to_dict(orient='records')
@@ -3305,7 +3305,7 @@ class Grade_reps(object):
         AND lower(state) != 'district of columbia'
         AND lower(state) != 'virgin islands'
         AND lower(state) != 'american samoa'
-        AND lower(state) != 'norther miriana islands'
+        AND lower(state) != 'northern miriana islands'
         ;""", open_connection())
 
         house_membership = pd.read_sql_query("""
@@ -3356,7 +3356,7 @@ class Grade_reps(object):
         AND lower(state) != 'district of columbia'
         AND lower(state) != 'virgin islands'
         AND lower(state) != 'american samoa'
-        AND lower(state) != 'norther miriana islands'
+        AND lower(state) != 'northern miriana islands'
         ;""", open_connection())
 
         house_membership = pd.read_sql_query("""
