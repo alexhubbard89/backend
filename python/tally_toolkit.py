@@ -2216,7 +2216,13 @@ class Performance(object):
             photo_url
             FROM congress_bio 
             WHERE chamber = 'house'
-            AND served_until = 'Present';""", open_connection())
+            AND served_until = 'Present'
+            AND lower(state) != 'guam'
+            AND lower(state) != 'puerto rico'
+            AND lower(state) != 'district of columbia'
+            AND lower(state) != 'virgin islands'
+            AND lower(state) != 'american samoa'
+            AND lower(state) != 'norther miriana islands';""", open_connection())
 
             ## Get 
             days_voted = pd.merge(find_house, days_voted, how='left', on='bioguide_id')
@@ -2308,7 +2314,13 @@ class Performance(object):
             photo_url
             FROM congress_bio 
             WHERE chamber = 'house'
-            AND served_until = 'Present';""", open_connection())
+            AND served_until = 'Present'
+            AND lower(state) != 'guam'
+            AND lower(state) != 'puerto rico'
+            AND lower(state) != 'district of columbia'
+            AND lower(state) != 'virgin islands'
+            AND lower(state) != 'american samoa'
+            AND lower(state) != 'norther miriana islands';""", open_connection())
 
             rep_votes = pd.merge(find_house, rep_votes, how='left', on='bioguide_id')
             
@@ -2403,7 +2415,13 @@ class Performance(object):
             photo_url,
             chamber
             FROM congress_bio 
-            WHERE served_until = 'Present';""", open_connection())
+            WHERE served_until = 'Present'
+            AND lower(state) != 'guam'
+            AND lower(state) != 'puerto rico'
+            AND lower(state) != 'district of columbia'
+            AND lower(state) != 'virgin islands'
+            AND lower(state) != 'american samoa'
+            AND lower(state) != 'norther miriana islands';""", open_connection())
 
         all_sponsored = pd.merge(find_reps, all_sponsored, how='left', on='bioguide_id')
 
@@ -2976,7 +2994,7 @@ class Search(object):
             x = search_term.split(' ')
             search_term_query = ''
             for i in range(len(x)):
-                search_term_query += """AND (lower(name) ilike '%' || '{}' || '%'
+                search_term_query += """OR (lower(name) ilike '%' || '{}' || '%'
                 OR lower(state) ilike '%' || '{}' || '%'
                 OR lower(party) ilike '%' || '{}' || '%') """.format(x[i], x[i], x[i])
                 
@@ -3282,6 +3300,12 @@ class Grade_reps(object):
         chamber
         FROM congress_bio
         WHERE served_until = 'Present'
+        AND lower(state) != 'guam'
+        AND lower(state) != 'puerto rico'
+        AND lower(state) != 'district of columbia'
+        AND lower(state) != 'virgin islands'
+        AND lower(state) != 'american samoa'
+        AND lower(state) != 'norther miriana islands'
         ;""", open_connection())
 
         house_membership = pd.read_sql_query("""
@@ -3327,6 +3351,12 @@ class Grade_reps(object):
         chamber
         FROM congress_bio
         WHERE served_until = 'Present'
+        AND lower(state) != 'guam'
+        AND lower(state) != 'puerto rico'
+        AND lower(state) != 'district of columbia'
+        AND lower(state) != 'virgin islands'
+        AND lower(state) != 'american samoa'
+        AND lower(state) != 'norther miriana islands'
         ;""", open_connection())
 
         house_membership = pd.read_sql_query("""
