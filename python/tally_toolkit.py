@@ -2966,7 +2966,7 @@ class Search(object):
                 search_term_dist = search_term_dist.strip(' ')
                 if len(search_term_dist) > 0:
                     try:
-                        search_term_dist = str(us.states.lookup(search_term_dist)).lower()
+                        search_term_dist = str(us.states.lookup(unicode(search_term_dist))).lower()
                     except:
                         'dont change it'
                         
@@ -3049,7 +3049,7 @@ class Search(object):
             Just search what you originally got.
             """
             try:
-                search_term = str(us.states.lookup(search_term)).lower()
+                search_term = str(us.states.lookup(unicode(search_term))).lower()
             except:
                 'dont change it'
             
