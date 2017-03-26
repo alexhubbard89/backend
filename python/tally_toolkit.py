@@ -2494,11 +2494,60 @@ class Performance(object):
                 self.bioguide_id,
                 int(self.congress_num)), open_connection())
 
+    def bills_to_law(self):
+        self.congress_num = current_congress_num()
+
+        ## Bills made per rep
+        df = pd.read_sql_query("""
+            SELECT bioguide_id,
+            count(bioguide_id) as bills_to_law
+            FROM (
+            SELECT * FROM
+            (
+            SELECT issue_link, congress, tracker
+            FROM all_legislation
+            WHERE cast(congress as int) = {})
+            AS this_congress
+            LEFT JOIN bill_sponsors
+            ON this_congress.issue_link = bill_sponsors.url
+            WHERE bioguide_id != 'None')
+            AS joined_df
+            WHERE lower(tracker) = 'became law'
+            GROUP BY bioguide_id
+            ;""".format(self.congress_num), open_connection())
+        
+        ## Max made by rep
+        reps = pd.read_sql_query("""
+            SELECT DISTINCT bioguide_id,
+            chamber
+            FROM congress_bio
+            WHERE served_until = 'Present'
+            AND lower(state) != 'guam'
+            AND lower(state) != 'puerto rico'
+            AND lower(state) != 'district of columbia'
+            AND lower(state) != 'virgin islands'
+            AND lower(state) != 'american samoa'
+            AND lower(state) != 'northern miriana islands'
+            ;""", open_connection())
+        
+        ## stats
+        df = pd.merge(reps, df, how='left', on='bioguide_id').fillna(0)
+        df.loc[:, 'total_bills_to_law'] = max(df.loc[:, 'bills_to_law'])
+        df.loc[:, 'percent_bills_to_law'] = df.loc[:, 'bills_to_law']/df.loc[:, 'total_bills_to_law']
+        
+        ## subset 
+        if self.how == 'bioguide_id':
+            df = df.loc[df['bioguide_id'] == self.bioguide_id].reset_index(drop=True)
+        elif self.how == 'chamber':
+            df = df.loc[df['chamber'] == self.chamber].reset_index(drop=True)
+        
+        return df.to_dict(orient='records')
+
     
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
                 rep_votes_metrics=None, rep_sponsor_metrics=None,
                 chamber=None, membership_stats_df=None, policy_area_df=None,
-                search_term=None, rep_grade=None):
+                search_term=None, rep_grade=None, how=None):
         self.congress_num = congress_num
         self.bioguide_id = bioguide_id
         self.days_voted = days_voted
@@ -2508,6 +2557,7 @@ class Performance(object):
         self.membership_stats_df = membership_stats_df
         self.policy_area_df = policy_area_df
         self.rep_grade = rep_grade
+        self.how = how
 
 class Senate_colleciton(object):
     """
