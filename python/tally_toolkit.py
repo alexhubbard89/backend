@@ -2137,7 +2137,6 @@ class Performance(object):
         all reps have sponsored for this congress.
         """
 
-
         all_sponsored = pd.read_sql_query("""
             SELECT 
             bioguide_id,
@@ -2155,6 +2154,20 @@ class Performance(object):
             joined_leg
             GROUP BY joined_leg.bioguide_id
             """.format(self.congress_num), open_connection())
+
+        all_cong = pd.read_sql("""
+                    SELECT DISTINCT
+                    bioguide_id
+                    FROM congress_bio 
+                    WHERE served_until = 'Present'
+                    AND lower(state) != 'guam'
+                    AND lower(state) != 'puerto rico'
+                    AND lower(state) != 'district of columbia'
+                    AND lower(state) != 'virgin islands'
+                    AND lower(state) != 'american samoa'
+                    AND lower(state) != 'northern miriana islands';""", open_connection())
+
+        all_sponsored = pd.merge(all_cong, all_sponsored, how='left', on='bioguide_id').fillna(0)
         
         all_sponsored = all_sponsored.sort_values(['rep_sponsor', 'bioguide_id'], 
                                   ascending=[False, True]).reset_index(drop=True)
