@@ -3253,7 +3253,13 @@ class Grade_reps(object):
             party,
             photo_url,
             chamber
-            FROM congress_bio;""", open_connection())
+            FROM congress_bio
+            WHERE lower(state) != 'guam'
+            AND lower(state) != 'puerto rico'
+            AND lower(state) != 'district of columbia'
+            AND lower(state) != 'virgin islands'
+            AND lower(state) != 'american samoa'
+            AND lower(state) != 'northern miriana islands';""", open_connection())
 
         all_sponsored = pd.merge(all_sponsored, find_reps, how='left', on='bioguide_id').drop_duplicates(['bioguide_id'])
 
