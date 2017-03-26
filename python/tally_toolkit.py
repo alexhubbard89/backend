@@ -3062,12 +3062,12 @@ class Search(object):
             Just search what you originally got.
             """
             try:
-                search_term = str(us.states.lookup(unicode(search_term))).lower()
+                state_search = str(us.states.lookup(unicode(search_term))).lower()
                 search_term_query = """OR (lower(name) ilike '%' || '{}' || '%'
                 OR lower(state) ilike '%' || '{}' || '%'
-                OR lower(party) ilike '%' || '{}' || '%') """.format(search_term, search_term, search_term)
+                OR lower(party) ilike '%' || '{}' || '%') """.format(state_search, state_search, state_search)
                 
-                return pd.read_sql_query("""
+                df =  pd.read_sql_query("""
                 SELECT * FROM (
                 SELECT DISTINCT name,
                 bioguide_id,
@@ -3098,7 +3098,52 @@ class Search(object):
                 """.format(
                     search_term_query[4:],
                     cong_num
-                    ), open_connection()).to_dict(orient='records')
+                    ), open_connection())
+
+                if len(df) > 0:
+                    return df.to_dict(orient='records')
+                else:
+                    x = search_term.split(' ')
+                    search_term_query = ''
+                    for i in range(len(x)):
+                        search_term_query += """OR (lower(name) ilike '%' || '{}' || '%'
+                        OR lower(state) ilike '%' || '{}' || '%'
+                        OR lower(party) ilike '%' || '{}' || '%') """.format(x[i], x[i], x[i])
+                    
+                    df = pd.read_sql_query("""
+                    SELECT * FROM (
+                    SELECT DISTINCT name,
+                    bioguide_id,
+                    state,
+                    district,
+                    party,
+                    chamber,
+                    photo_url
+                    FROM congress_bio
+                    WHERE served_until = 'Present'
+                    AND lower(state) != 'guam'
+                    AND lower(state) != 'puerto rico'
+                    AND lower(state) != 'district of columbia'
+                    AND lower(state) != 'virgin islands'
+                    AND lower(state) != 'american samoa'
+                    AND lower(state) != 'northern mariana islands'
+                    AND (({}))
+                            AS rep_bio
+                            LEFT JOIN (
+                            SELECT bioguide_id as b_id,
+                            letter_grade_extra_credit as letter_grade,
+                            total_grade_extra_credit as number_grade
+                            FROM congress_grades
+                            WHERE congress = {}
+                            ) AS grades 
+                            ON grades.b_id = rep_bio.bioguide_id
+                            ;
+                    """.format(
+                        search_term_query[4:],
+                        cong_num
+                        ), open_connection())
+
+                    return df.drop(['b_id'],1).fillna(0).to_dict(orient='records')
 
 
             except:
