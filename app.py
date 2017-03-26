@@ -368,6 +368,32 @@ def rank_efficacy():
         ## If returns no data
         return jsonify(results=False)
 
+## Return all attendance
+@app.route("/bills_to_law", methods=["POST"])
+def bills_to_law():
+    rep_perfomance = tally_toolkit.Performance()
+    try:
+        data = json.loads(request.data.decode())
+        rep_perfomance.how = data['how']
+        print rep_perfomance.how
+        if rep_perfomance.how == 'bioguide_id':
+            rep_perfomance.bioguide_id = data['bioguide_id']
+        else:
+            rep_perfomance.chamber = data['chamber']
+    except:
+        rep_perfomance.how = request.form['how']
+        print rep_perfomance.how
+        if rep_perfomance.how == 'bioguide_id':
+            rep_perfomance.bioguide_id = request.form['bioguide_id']
+        else:
+            rep_perfomance.chamber = request.form['chamber']
+    try:
+        return jsonify(results=tally_toolkit.Performance.bills_to_law(rep_perfomance))
+    except:
+        ## If returns no data
+        return jsonify(results=False)
+
+
 
 ## Return list of reps for user to search
 @app.route("/list_reps", methods=["POST"])
