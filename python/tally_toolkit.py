@@ -3050,6 +3050,44 @@ class Search(object):
             """
             try:
                 search_term = str(us.states.lookup(unicode(search_term))).lower()
+                search_term_query = """OR (lower(name) ilike '%' || '{}' || '%'
+                OR lower(state) ilike '%' || '{}' || '%'
+                OR lower(party) ilike '%' || '{}' || '%') """.format(search_term, search_term, search_term)
+                
+                return pd.read_sql_query("""
+                SELECT * FROM (
+                SELECT DISTINCT name,
+                bioguide_id,
+                state,
+                district,
+                party,
+                chamber,
+                photo_url
+                FROM congress_bio
+                WHERE served_until = 'Present'
+                AND lower(state) != 'guam'
+                AND lower(state) != 'puerto rico'
+                AND lower(state) != 'district of columbia'
+                AND lower(state) != 'virgin islands'
+                AND lower(state) != 'american samoa'
+                AND lower(state) != 'northern miriana islands'
+                AND (({}))
+                        AS rep_bio
+                        LEFT JOIN (
+                        SELECT bioguide_id,
+                        letter_grade_extra_credit as letter_grade,
+                        total_grade_extra_credit as number_grade
+                        FROM congress_grades
+                        WHERE congress = {}
+                        ) AS grades 
+                        ON grades.bioguide_id = rep_bio.bioguide_id
+                        ;
+                """.format(
+                    search_term_query[4:],
+                    cong_num
+                    ), open_connection()).to_dict(orient='records')
+
+
             except:
                 'dont change it'
             
