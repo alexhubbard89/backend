@@ -255,14 +255,14 @@ class user_info(object):
                 OR (chamber = 'house' and district = {})))
                 AS rep_bio
                 LEFT JOIN (
-                SELECT bioguide_id,
+                SELECT bioguide_id as b_id,
                 letter_grade_extra_credit as letter_grade,
                 total_grade_extra_credit as number_grade
                 FROM congress_grades
                 WHERE congress = {}
                 ) AS grades 
-                ON grades.bioguide_id = rep_bio.bioguide_id
-                ;""".format(self.state_long, self.district, cong_num), open_connection())
+                ON grades.b_id = rep_bio.bioguide_id
+                ;""".format(self.state_long, self.district, cong_num), open_connection()).drop(['b_id'], 1)
 
 
         user_results = pd.read_sql_query(sql_command, open_connection())
@@ -2988,6 +2988,12 @@ class Search(object):
                     photo_url
                     FROM congress_bio
                     WHERE served_until = 'Present'
+                    AND lower(state) != 'guam'
+                    AND lower(state) != 'puerto rico'
+                    AND lower(state) != 'district of columbia'
+                    AND lower(state) != 'virgin islands'
+                    AND lower(state) != 'american samoa'
+                    AND lower(state) != 'northern miriana islands'
                     {}
                     AND ({}))
                     AS rep_bio
@@ -3016,6 +3022,12 @@ class Search(object):
                     photo_url
                     FROM congress_bio
                     WHERE served_until = 'Present'
+                    AND lower(state) != 'guam'
+                    AND lower(state) != 'puerto rico'
+                    AND lower(state) != 'district of columbia'
+                    AND lower(state) != 'virgin islands'
+                    AND lower(state) != 'american samoa'
+                    AND lower(state) != 'northern miriana islands'
                     AND ({}))
                     AS rep_bio
                     LEFT JOIN (
@@ -3059,6 +3071,12 @@ class Search(object):
             photo_url
             FROM congress_bio
             WHERE served_until = 'Present'
+            AND lower(state) != 'guam'
+            AND lower(state) != 'puerto rico'
+            AND lower(state) != 'district of columbia'
+            AND lower(state) != 'virgin islands'
+            AND lower(state) != 'american samoa'
+            AND lower(state) != 'northern miriana islands'
             AND (({}))
                     AS rep_bio
                     LEFT JOIN (
@@ -3092,60 +3110,79 @@ class Search(object):
             self.zip_code_check = "Bad request"
             
     def find_dist_by_zip(self):
+        cong_num = current_congress_num()
+        s = requests.Session()
+        s.auth = ('user', 'pass')
+        headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36',
+        }
+        url = 'http://ziplook.house.gov/htbin/findrep?ZIP={}&Submit=FIND+YOUR+REP+BY+ZIP'.format(self.zip_code)
+        r = requests.get(url=url, headers=headers)
+        page = BeautifulSoup(r.content, 'lxml')
+        possible_reps = str(page.findAll('div', id='PossibleReps')[0])
 
-            s = requests.Session()
-            s.auth = ('user', 'pass')
-            headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36',
-            }
-            url = 'http://ziplook.house.gov/htbin/findrep?ZIP={}&Submit=FIND+YOUR+REP+BY+ZIP'.format(self.zip_code)
-            r = requests.get(url=url, headers=headers)
-            page = BeautifulSoup(r.content, 'lxml')
-            possible_reps = str(page.findAll('div', id='PossibleReps')[0])
+        district_info = pd.DataFrame()
 
-            district_info = pd.DataFrame()
+        for i in range(1, len(possible_reps.split('/zip/pictures/'))):
+            state_dist = possible_reps.split('/zip/pictures/')[i].split('_')[0]
+            split_sd = re.split('(\d+)', state_dist)
+            for j in range(len(split_sd)):
+                if j == 0:
+                    ## Letters is state short
+                    state_short = str(split_sd[j])
+                    district_info.loc[i, 'state_short'] = state_short
+                    state_long = str(us.states.lookup(state_short))
+                    district_info.loc[i, 'state_long'] = state_long
+                elif j == 1:
+                    ## Numbers is district number
+                    district_num = int(split_sd[j])
+                    district_info.loc[i, 'district_num'] = district_num
 
-            for i in range(1, len(possible_reps.split('/zip/pictures/'))):
-                state_dist = possible_reps.split('/zip/pictures/')[i].split('_')[0]
-                split_sd = re.split('(\d+)', state_dist)
-                for j in range(len(split_sd)):
-                    if j == 0:
-                        ## Letters is state short
-                        state_short = str(split_sd[j])
-                        district_info.loc[i, 'state_short'] = state_short
-                        state_long = str(us.states.lookup(state_short))
-                        district_info.loc[i, 'state_long'] = state_long
-                    elif j == 1:
-                        ## Numbers is district number
-                        district_num = int(split_sd[j])
-                        district_info.loc[i, 'district_num'] = district_num
+        dist = district_info.reset_index(drop=True)
 
-            dist = district_info.reset_index(drop=True)
-
-            dist_query = ''
-            for i in range(len(dist)):
-                if i != 0:
-                    dist_query += " OR (state = '{}' AND district ='{}')".format(
-                        dist.loc[i, 'state_long'], int(dist.loc[i, 'district_num']))
-                if i == 0:
-                    dist_query += "(state = '{}' AND district ='{}')".format(
-                        dist.loc[i, 'state_long'], int(dist.loc[i, 'district_num']))
+        dist_query = ''
+        for i in range(len(dist)):
+            if i != 0:
+                dist_query += " OR (state = '{}' AND district ='{}')".format(
+                    dist.loc[i, 'state_long'], int(dist.loc[i, 'district_num']))
+            if i == 0:
+                dist_query += "(state = '{}' AND district ='{}')".format(
+                    dist.loc[i, 'state_long'], int(dist.loc[i, 'district_num']))
 
 
-            sql_query = """
-            SELECT distinct name, 
-            bioguide_id, 
-            state, 
-            district, 
-            party, 
-            chamber,
-            photo_url
-            FROM congress_bio
-            WHERE (({})
-            AND served_until = 'Present')
-            OR (state = '{}' AND served_until = 'Present' AND chamber = 'senate')""".format(dist_query, dist.loc[i, 'state_long'])
+        sql_query = """
+        SELECT * FROM (
+        SELECT distinct name, 
+        bioguide_id, 
+        state, 
+        district, 
+        party, 
+        chamber,
+        photo_url
+        FROM congress_bio
+        WHERE (({})
+        AND served_until = 'Present'
+        AND lower(state) != 'guam'
+        AND lower(state) != 'puerto rico'
+        AND lower(state) != 'district of columbia'
+        AND lower(state) != 'virgin islands'
+        AND lower(state) != 'american samoa'
+        AND lower(state) != 'northern miriana islands')
+        OR (state = '{}' AND served_until = 'Present' AND chamber = 'senate'))
+                AS rep_bio
+                LEFT JOIN (
+                SELECT bioguide_id,
+                letter_grade_extra_credit as letter_grade,
+                total_grade_extra_credit as number_grade
+                FROM congress_grades
+                WHERE congress = {}
+                ) AS grades 
+                ON grades.bioguide_id = rep_bio.bioguide_id
+                ;""".format(dist_query, 
+                    dist.loc[i, 'state_long'], 
+                    cong_num)
 
-            return pd.read_sql_query(sql_query, open_connection())
+        return pd.read_sql_query(sql_query, open_connection())
     
     
     def __init__(self, search_term=None, zip_code=None):
@@ -3525,11 +3562,27 @@ class Grade_reps(object):
         total_grades.loc[total_grades['total_grade_extra_credit'] > 1, 'total_grade_extra_credit'] = 1
 
         ## Map to letter grades
-        labels = [ "{0} - {1}".format(i, i + 9) for i in range(0, 110, 10) ]
-        grades = {'100 - 109': 'A', '90 - 99': 'A','80 - 89': 'B','70 - 79': 'C','60 - 69': 'D','50 - 59': 'F',
-                 '40 - 49': 'F','30 - 39': 'F','20 - 29': 'F','10 - 19': 'F','0 - 9': 'F'}
-        total_grades.loc[:, 'letter_grade'] = pd.cut(total_grades['total_grade']*100,range(0, 115, 10), right=False, labels=labels).map(grades)
-        total_grades.loc[:, 'letter_grade_extra_credit'] = pd.cut(total_grades['total_grade_extra_credit']*100,range(0, 115, 10), right=False, labels=labels).map(grades)
+        grades = {'100 - 109': 'A+', '93 - 99': 'A', '90 - 92': 'A-',
+                  '87 - 89': 'B+', '83 - 86': 'B', '80 - 82': 'B-',
+                  '77 - 79': 'C+', '73 - 76': 'C', '70 - 72': 'C-',
+                  '67 - 69': 'D+', '63 - 66': 'D', '60 - 62': 'D-',
+                  '0 - 59': 'F'}
+
+        total_grades.loc[:, 'grade_int'] = (total_grades.loc[total_grades['total_grade'].notnull(), 
+                                       'total_grade']*100).astype(int)
+        for grade in grades:
+            total_grades.loc[((total_grades['grade_int'] >= int(grade.split(' - ')[0])) &
+                                           (total_grades['grade_int'] <= int(grade.split(' - ')[1]))),
+                                          'letter_grade'] = grades[grade]
+
+        total_grades.loc[:, 'grade_int'] = (total_grades.loc[total_grades['total_grade_extra_credit'].notnull(), 
+                                       'total_grade_extra_credit']*100).astype(int)
+        for grade in grades:
+            total_grades.loc[((total_grades['grade_int'] >= int(grade.split(' - ')[0])) &
+                                           (total_grades['grade_int'] <= int(grade.split(' - ')[1]))),
+                                          'letter_grade_extra_credit'] = grades[grade]
+            
+        total_grades = total_grades.drop(['grade_int'], 1)
 
         ## Remove speaker of the house from grading
         if self.congress == 115:
