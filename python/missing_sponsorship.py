@@ -7,7 +7,7 @@ import os
 urlparse.uses_netloc.append("postgres")
 
 def open_connection():
-    url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
+    url = urlparse.urlparse(os.environ["DATABASE_URL"])
     connection = psycopg2.connect(
         database=url.path[1:],
         user=url.username,
