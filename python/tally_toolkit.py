@@ -24,8 +24,8 @@ import ast
 from scipy import stats
 
 urlparse.uses_netloc.append("postgres")
-url = urlparse.urlparse(os.environ["HEROKU_POSTGRESQL_BROWN_URL"])
-    
+url = urlparse.urlparse(os.environ["DATABASE_URL"])
+   
 def open_connection():
     connection = psycopg2.connect(
         database=url.path[1:],
