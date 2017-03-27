@@ -115,7 +115,7 @@ def create_user():
     user_made = tally_toolkit.user_info.user_info_to_sql(user)
 
     if user_made == True:
-        return jsonify(results=True)
+        return jsonify(tally_toolkit.user_info.get_id_from_email(user)[0])
     elif user_made == False:
         return jsonify(results="oops! That user name already exists.")
 
