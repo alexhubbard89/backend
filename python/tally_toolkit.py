@@ -130,6 +130,13 @@ class user_info(object):
 
         return df
 
+    def get_id_from_email(self):
+        return pd.read_sql_query("""
+        SELECT user_id 
+        FROM user_tbl 
+        WHERE email = '{}';
+        """.format(self.email), open_connection()).to_dict(orient='records')
+
     def user_info_to_sql(self):
         connection = open_connection()
         x = list(self.user_df.loc[0,])
@@ -3937,10 +3944,7 @@ class Ideology(object):
                 WHERE lower(title_description) ilike '%' || 'obamacare' || '%'
                 OR lower(title_description) ilike '%' || 'affordable care act' || '%'
                 OR lower(title_description) ilike '%' || 'individual mandate' || '%'
-                OR lower(title_description) ilike '%' || 'medicare prescription drug price negotiation act' || '%'
-                OR lower(title_description) ilike '%' || 'children''s health insurance program reauthorization act' || '%'
-                OR lower(title_description) ilike '%' || 'family smoking prevention and tobacco control act' || '%'
-                OR lower(title_description) ilike '%' || 'health outcomes, planning, and education for alzheimer''s act' || '%')
+                OR lower(title_description) ilike '%' || ' aca ' || '%')
                 AS obama
                 LEFT JOIN bill_sponsors
                 ON obama.issue_link = bill_sponsors.url
