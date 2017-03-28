@@ -33,6 +33,9 @@ WHERE congress = {}
 ## Collect missing roll call votes
 tally_toolkit.vote_collector.get_congress_votes(vc_data)
 
+## Collect missing roll call votes
+tally_toolkit.vote_collector.get_congress_votes(vc_data)
+
 ## Get unique where bioguide is none
 membs = vc_data.house_votes[['member_full', 'state', 'year', 'bioguide_id']].drop_duplicates()
 null_index = membs.loc[((membs['bioguide_id'] == 'None') | (membs['bioguide_id'].isnull()))].index
