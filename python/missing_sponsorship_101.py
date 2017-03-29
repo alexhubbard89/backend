@@ -65,11 +65,11 @@ for i in range(len(null_index)):
     else:
         membs.loc[i, 'bioguide_id'] = 'none {}'.format(membs.loc[i, 'member_full'])
         
-    vc_data.house_votes = pd.merge(vc_data.house_votes.drop(['bioguide_id'], 1), 
-            membs, how='left', on=['member_full', 'state', 'year'])
+vc_data.house_votes = pd.merge(vc_data.house_votes.drop(['bioguide_id'], 1), 
+        membs, how='left', on=['member_full', 'state', 'year'])
 
 print 'add {} votes'.format(len(vc_data.house_votes))
-## Put in databse
+
 tally_toolkit.vote_collector.house_votes_into_sql(vc_data)
 
 print 'done 101'
