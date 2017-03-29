@@ -25,7 +25,7 @@ from scipy import stats
 
 urlparse.uses_netloc.append("postgres")
 url = urlparse.urlparse(os.environ["DATABASE_URL"])
-   
+
 def open_connection():
     connection = psycopg2.connect(
         database=url.path[1:],
@@ -661,6 +661,12 @@ class vote_collector(object):
 
         duplicated = 0
 
+        self.house_votes.loc[:, 'date'] = self.house_votes.loc[:, 'date'].astype(int)
+        self.house_votes.loc[:, 'member_full'] = self.house_votes.loc[:, 'member_full'].apply(lambda x: sanitize(x))
+        self.house_votes['date'] = pd.to_datetime(self.house_votes['date'])
+
+        self.house_votes = self.house_votes[['member_full', 'bioguide_id', 'party', 'role', 'state', 'vote', 'year', 'roll', 'congress', 'session', 'date', 'roll_id']]
+
         ## Put data into table
         for i in range(len(self.house_votes)):
             x = list(self.house_votes.loc[i,])
@@ -697,6 +703,7 @@ class vote_collector(object):
         connection.close()
         if duplicated > 0:
             self.duplicate_entries = 'There were {} duplicaetes... But why?'.format(duplicated)
+            print self.duplicate_entries
 
     def collect_missing_house_votes(self):
         """
