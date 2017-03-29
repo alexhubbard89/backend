@@ -3956,6 +3956,22 @@ class Ideology(object):
                 LEFT JOIN bill_sponsors
                 ON obama.issue_link = bill_sponsors.url
                 ;""", open_connection())
+        elif self.ideology.lower() == 'lgbt rights':
+            bills = pd.read_sql_query("""
+                SELECT * FROM (
+                SELECT * FROM all_legislation
+                WHERE lower(title_description) ilike '%' || 'same-sex' || '%'
+                OR lower(title_description) ilike '%' || 'defense of marriage act' || '%'
+                OR lower(title_description) ilike '%' || ' doma ' || '%'
+                OR lower(title_description) ilike '%' || 'lesbian' || '%'
+                OR lower(title_description) ilike '%' || ' bisexual ' || '%'
+                OR lower(title_description) ilike '%' || ' transgender ' || '%'
+                OR lower(title_description) ilike '%' || 'lgbt' || '%'
+                OR lower(title_description) ilike '%' || 'don''t ask, don''t tell' || '%')
+                AS lgbt
+                LEFT JOIN bill_sponsors
+                ON lgbt.issue_link = bill_sponsors.url
+                ;""", open_connection())
         else:
             print 'incorrect ideology'
             return
@@ -4405,10 +4421,9 @@ class Ideology(object):
         ## Add the number of votes the rep partook in
         total_votes_df = ideology_stats_by_rep.groupby('bioguide_id').count()['roll_id'].reset_index(drop=False)
         total_votes_df.columns = ['bioguide_id', 'total_votes']
+
         ideology_stats_by_rep_sums = pd.merge(ideology_stats_by_rep_sums,total_votes_df,how='left', on='bioguide_id')
 
-
-        ideology_stats_by_rep_sums['ideology_type'] = self.ideology
         
         
         master_df = pd.DataFrame()
@@ -4428,7 +4443,7 @@ class Ideology(object):
                                                    ideology_stats_by_rep_sums['ideology_prob'])
         ideology_stats_by_rep_sums['total_actions'] = (ideology_stats_by_rep_sums['total_sponsorship'] + 
                                                        ideology_stats_by_rep_sums['total_votes'])
-        ideology_stats_by_rep_sums = ideology_stats_by_rep_sums.loc[ideology_stats_by_rep_sums['total_actions'] > 4].reset_index(drop=True)
+        ideology_stats_by_rep_sums = ideology_stats_by_rep_sums.loc[ideology_stats_by_rep_sums['total_actions'] > 2].reset_index(drop=True)
         ideology_stats_by_rep_sums.loc[:, 'neutral_index'] = abs(ideology_stats_by_rep_sums['s_v_score']/
                                                        ideology_stats_by_rep_sums['total_actions'])
         ideology_stats_by_rep_sums['s_v_score_normalized'] =  (ideology_stats_by_rep_sums['s_v_score']/
@@ -4448,6 +4463,8 @@ class Ideology(object):
         f_bar = ((f_max + f_min)/2)
         A = (2/(f_max - f_min))
         ideology_stats_by_rep_sums.loc[:, 'tally_score'] = ideology_stats_by_rep_sums.loc[:, 'z_scores'].apply(lambda x: round(A*(x - f_bar), 4) * 3)
+
+        ideology_stats_by_rep_sums['ideology_type'] = self.ideology
         
         self.ideology_stats_by_rep_sums = ideology_stats_by_rep_sums
 
@@ -4711,6 +4728,11 @@ class Ideology(object):
     def put_finalized_ideology_stats_into_sql(self):
         connection = open_connection()
         cursor = connection.cursor()
+
+        self.ideology_stats_by_rep_sums = self.ideology_stats_by_rep_sums[['bioguide_id', 'sponsorship_score', 
+                                            'total_sponsorship', 'c_prob', 'l_prob', 'ideology_prob', 
+                                            'total_votes', 'ideology_type', 's_v_score', 'total_actions', 
+                                            'neutral_index', 's_v_score_normalized', 'z_scores', 'tally_score']]
         
         ## Put data into table
         for i in range(len(self.ideology_stats_by_rep_sums)):
