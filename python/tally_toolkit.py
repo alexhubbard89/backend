@@ -3710,7 +3710,7 @@ class Grade_reps(object):
                               (total_grades['leadership_position'] != 'Speaker of the House')), 
                              'total_grade_extra_credit'] = (total_grades.loc[((total_grades['leadership_position'] != 0) &
                                                                               (total_grades['leadership_position'] != 'Speaker of the House')), 
-                                                                             'total_grade_extra_credit'] + .05)
+                                                                             'total_grade_extra_credit'] + .15)
             total_grades.loc[total_grades['chamber'] == 'house', 'total_grade_extra_credit'] = (
                 total_grades.loc[total_grades['chamber'] == 'house', 'total_grade_extra_credit'] +
                 (total_grades.loc[total_grades['chamber'] == 'house', 'leadership']/25))
@@ -3746,7 +3746,7 @@ class Grade_reps(object):
 
         ## Remove speaker of the house from grading
         if self.congress == 115:
-            total_grades.loc[(total_grades['leadership_position'] == 'Speaker of the House'),
+            total_grades.loc[((total_grades['leadership_position'] == 'Speaker of the House')),
                             ['total_grade', 'total_grade_extra_credit',
                             'letter_grade', 'letter_grade_extra_credit']] = None
 
@@ -3971,6 +3971,29 @@ class Ideology(object):
                 AS lgbt
                 LEFT JOIN bill_sponsors
                 ON lgbt.issue_link = bill_sponsors.url
+                ;""", open_connection())
+        elif self.ideology.lower() == 'taxes':
+            bills = pd.read_sql_query("""
+                SELECT * FROM (
+                SELECT * FROM all_legislation
+                WHERE lower(title_description) ilike '%' || 'progressive tax' || '%'
+                OR lower(title_description) ilike '%' || 'flat tax' || '%'
+                OR lower(title_description) ilike '%' || 'fair tax' || '%'
+                OR lower(title_description) ilike '%' || 'fairtax' || '%'
+                OR lower(title_description) ilike '%' || 'death tax' || '%'
+                OR lower(title_description) ilike '%' || 'marriage penalty' || '%'
+                OR lower(title_description) ilike '%' || 'tax breaks' || '%'
+                OR lower(title_description) ilike '%' || 'capital gains' || '%'
+                OR lower(title_description) ilike '%' || 'estate tax' || '%'
+                OR lower(title_description) ilike '%' || 'alternative minimum tax' || '%'
+                OR lower(title_description) ilike '%' || 'corporate tax' || '%'
+                OR lower(title_description) ilike '%' || 'monetary policy reform' || '%'
+                OR lower(title_description) ilike '%' || 'amt relief' || '%'
+                OR lower(title_description) ilike '%' || 'offshore deferred compensation' || '%'
+                )
+                AS taxes
+                LEFT JOIN bill_sponsors
+                ON taxes.issue_link = bill_sponsors.url
                 ;""", open_connection())
         else:
             print 'incorrect ideology'
@@ -4465,6 +4488,7 @@ class Ideology(object):
         ideology_stats_by_rep_sums.loc[:, 'tally_score'] = ideology_stats_by_rep_sums.loc[:, 'z_scores'].apply(lambda x: round(A*(x - f_bar), 4) * 3)
 
         ideology_stats_by_rep_sums['ideology_type'] = self.ideology
+        ideology_stats_by_rep_sums['type'] = self.ideology_type
         
         self.ideology_stats_by_rep_sums = ideology_stats_by_rep_sums
 
@@ -4732,7 +4756,8 @@ class Ideology(object):
         self.ideology_stats_by_rep_sums = self.ideology_stats_by_rep_sums[['bioguide_id', 'sponsorship_score', 
                                             'total_sponsorship', 'c_prob', 'l_prob', 'ideology_prob', 
                                             'total_votes', 'ideology_type', 's_v_score', 'total_actions', 
-                                            'neutral_index', 's_v_score_normalized', 'z_scores', 'tally_score']]
+                                            'neutral_index', 's_v_score_normalized', 'z_scores', 'tally_score',
+                                            'type']]
         
         ## Put data into table
         for i in range(len(self.ideology_stats_by_rep_sums)):
@@ -4754,17 +4779,19 @@ class Ideology(object):
                 neutral_index,
                 s_v_score_normalized,
                 z_scores,
-                tally_score)
+                tally_score,
+                'type')
                 VALUES ('{bioguide_id}', '{sponsorship_score}', '{total_sponsorship}',
                 '{c_prob}', '{l_prob}', '{ideology_prob}', '{total_votes}', '{ideology_type}', 
                 '{s_v_score}', '{total_actions}', '{neutral_index}', '{s_v_score_normalized}', 
-                '{z_scores}', '{tally_score}');"""
+                '{z_scores}', '{tally_score}', '{type}');"""
 
 
                 sql_command = format_str.format(bioguide_id=p[0], sponsorship_score=p[1], 
                     total_sponsorship=int(p[2]), c_prob=p[3], l_prob=p[4], ideology_prob=p[5],
                     total_votes=int(p[6]), ideology_type=p[7], s_v_score=p[8], total_actions=int(p[9]), 
-                    neutral_index=p[10], s_v_score_normalized=p[11], z_scores=p[12], tally_score=p[13])
+                    neutral_index=p[10], s_v_score_normalized=p[11], z_scores=p[12], tally_score=p[13],
+                    type=p[14])
 
                 try:
                     # Try to insert, if it can't inset then it should update
@@ -4786,7 +4813,8 @@ class Ideology(object):
                     neutral_index = {},
                     s_v_score_normalized = {},
                     z_scores = {},
-                    tally_score = {}
+                    tally_score = {},
+                    type='{}'
                     where (bioguide_id = '{}' AND ideology_type = '{}');""".format(
                     self.ideology_stats_by_rep_sums.loc[i, 'sponsorship_score'],
                     int(self.ideology_stats_by_rep_sums.loc[i, 'total_sponsorship']),
@@ -4801,7 +4829,8 @@ class Ideology(object):
                     self.ideology_stats_by_rep_sums.loc[i, 'z_scores'],
                     self.ideology_stats_by_rep_sums.loc[i, 'tally_score'],
                     self.ideology_stats_by_rep_sums.loc[i, 'bioguide_id'],
-                    self.ideology_stats_by_rep_sums.loc[i, 'ideology_type'])
+                    self.ideology_stats_by_rep_sums.loc[i, 'ideology_type'],
+                    self.ideology_stats_by_rep_sums.loc[i, 'type'])
 
                     cursor.execute(sql_command)
                     connection.commit()
@@ -4810,7 +4839,8 @@ class Ideology(object):
         connection.close()
     
     def __init__(self, ideology=None, roll_id=None, chamber=None, ideology_df=None, predictive_bills_votes=None,
-                master_ideology=None, partisan_bills_only=None, ideology_stats_by_rep_sums=None, bills_df=None):
+                master_ideology=None, partisan_bills_only=None, ideology_stats_by_rep_sums=None, bills_df=None,
+                ideology_type=None):
         self.ideology = ideology
         self.roll_id = roll_id
         self.chamber = chamber
@@ -4820,3 +4850,4 @@ class Ideology(object):
         self.partisan_bills_only = partisan_bills_only
         self.ideology_stats_by_rep_sums = ideology_stats_by_rep_sums
         self.bills_df = bills_df
+        self.ideology_type = ideology_type
