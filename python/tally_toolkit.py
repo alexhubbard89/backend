@@ -3995,6 +3995,59 @@ class Ideology(object):
                 LEFT JOIN bill_sponsors
                 ON taxes.issue_link = bill_sponsors.url
                 ;""", open_connection())
+        elif self.ideology.lower() == 'homeland security':
+            bills = pd.read_sql_query("""
+                SELECT * FROM (
+                SELECT * FROM all_legislation
+                WHERE lower(title_description) ilike '%' || 'protect america act' || '%'
+                OR (lower(title_description) ilike '%' || 'patriot act' || '%'
+                AND (policy_area ilike '%' || 'Armed Forces and National Security' || '%'
+                OR policy_area ilike '%' || 'International Affairs' || '%'))
+                OR lower(title_description) ilike '%' || '9/11 Commission report' || '%'
+                OR lower(title_description) ilike '%' || 'aviation security' || '%'
+                OR lower(title_description) ilike '%' || 'al Qaeda' || '%'
+                OR lower(title_description) ilike '%' || 'war on terror' || '%'
+                OR lower(title_description) ilike '%' || 'guantanamo' || '%'
+                OR lower(title_description) ilike '%' || ' ISIS ' || '%'
+                OR lower(title_description) ilike '%' || ' ISIL ' || '%'
+                OR ((lower(title_description) ilike '%' || 'Iraq' || '%'
+                OR lower(title_description) ilike '%' || 'Afghanistan' || '%')
+                AND (policy_area ilike '%' || 'Armed Forces and National Security' || '%'
+                OR policy_area ilike '%' || 'International Affairs' || '%'))
+                OR (lower(title_description) ilike '%' || 'licens' || '%'
+                AND lower(title_description) ilike '%' || 'terror' || '%')
+                )
+                AS homeland_sec
+                LEFT JOIN bill_sponsors
+                ON homeland_sec.issue_link = bill_sponsors.url
+                ;""", open_connection())
+        elif self.ideology.lower() == 'stimulus or market led recovery':
+            bills = pd.read_sql_query("""
+                SELECT * FROM (
+                SELECT * FROM all_legislation
+                WHERE (lower(title_description) ilike '%' || 'Economic Recovery Act' || '%'
+                AND (policy_area ilike '%' || 'Finance and Financial Sector' || '%'
+                OR policy_area ilike '%' || 'Taxation' || '%'
+                OR policy_area ilike '%' || 'Commerce' || '%'
+                OR policy_area ilike '%' || 'Economics and Public Finance' || '%'
+                OR policy_area ilike '%' || 'Government Operations and Politics' || '%'))
+                OR lower(title_description) ilike '%' || 'Full Faith and Credit Act' || '%'
+                OR lower(title_description) ilike '%' || 'Omnibus Appropriations' || '%'
+                OR lower(title_description) ilike '%' || 'Helping Families Save Their Homes' || '%'
+                OR lower(title_description) ilike '%' || 'Homeownership preservation' || '%'
+                OR lower(title_description) ilike '%' || ' prevent mortgage foreclosures ' || '%'
+                OR lower(title_description) ilike '%' || 'American Recovery and Reinvestment' || '%'
+                OR lower(title_description) ilike '%' || 'Unemployment Insurance Modernization Act' || '%'
+                OR lower(title_description) ilike '%' || 'Auto Industry Financing and Restructuring Act' || '%'
+                OR lower(title_description) ilike '%' || 'Job Creation and Unemployment Relief Act' || '%'
+                OR lower(title_description) ilike '%' || 'supplemental appropriations for job' || '%'
+                OR lower(title_description) ilike '%' || 'Mortgage Reform' || '%'
+                )
+                AS stimulus
+                LEFT JOIN bill_sponsors
+                ON stimulus.issue_link = bill_sponsors.url
+                ;""", open_connection())
+
         else:
             print 'incorrect ideology'
             return
@@ -4487,8 +4540,8 @@ class Ideology(object):
         A = (2/(f_max - f_min))
         ideology_stats_by_rep_sums.loc[:, 'tally_score'] = ideology_stats_by_rep_sums.loc[:, 'z_scores'].apply(lambda x: round(A*(x - f_bar), 4) * 3)
 
-        ideology_stats_by_rep_sums['ideology_type'] = self.ideology
-        ideology_stats_by_rep_sums['type'] = self.ideology_type
+        ideology_stats_by_rep_sums.loc[:, 'ideology_type'] = self.ideology
+        ideology_stats_by_rep_sums.loc[:, 'type'] = self.ideology_type
         
         self.ideology_stats_by_rep_sums = ideology_stats_by_rep_sums
 
@@ -4780,7 +4833,7 @@ class Ideology(object):
                 s_v_score_normalized,
                 z_scores,
                 tally_score,
-                'type')
+                type)
                 VALUES ('{bioguide_id}', '{sponsorship_score}', '{total_sponsorship}',
                 '{c_prob}', '{l_prob}', '{ideology_prob}', '{total_votes}', '{ideology_type}', 
                 '{s_v_score}', '{total_actions}', '{neutral_index}', '{s_v_score_normalized}', 
@@ -4799,7 +4852,7 @@ class Ideology(object):
                     connection.commit()
                 except:
                     connection.rollback()
-                    ## If the update breaks then something is wrong
+                    # If the update breaks then something is wrong
                     sql_command = """UPDATE representatives_ideology_stats 
                     SET  
                     sponsorship_score = {},
@@ -4828,9 +4881,9 @@ class Ideology(object):
                     self.ideology_stats_by_rep_sums.loc[i, 's_v_score_normalized'],
                     self.ideology_stats_by_rep_sums.loc[i, 'z_scores'],
                     self.ideology_stats_by_rep_sums.loc[i, 'tally_score'],
+                    self.ideology_stats_by_rep_sums.loc[i, 'type'],
                     self.ideology_stats_by_rep_sums.loc[i, 'bioguide_id'],
-                    self.ideology_stats_by_rep_sums.loc[i, 'ideology_type'],
-                    self.ideology_stats_by_rep_sums.loc[i, 'type'])
+                    self.ideology_stats_by_rep_sums.loc[i, 'ideology_type'])
 
                     cursor.execute(sql_command)
                     connection.commit()
