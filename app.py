@@ -506,11 +506,11 @@ def rep_beliefs():
         rep_perfomance.bioguide_id = request.form['bioguide_id']
 
     ## Get and return beliefs
-    # try:
-    return jsonify(tally_toolkit.Performance.rep_beliefs(rep_perfomance))
-    # except:
-    #     ## If returns no data
-    #     return jsonify(results=False)
+    try:
+        return jsonify(results=tally_toolkit.Performance.rep_beliefs(rep_perfomance))
+    except:
+        ## If returns no data
+        return jsonify(results=False)
 
 if __name__ == '__main__':
     ## app.run is to run with flask
