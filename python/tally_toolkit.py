@@ -2557,6 +2557,96 @@ class Performance(object):
         
         return df.to_dict(orient='records')
 
+    def rep_beliefs(self):
+        """
+        This method will be used to 
+        create the overall ideology score,
+        the laddered up ideology scores,
+        and the individual ideology scores
+        for a given rep.
+        
+        Input: bioguide_id
+        Output: scores
+        """
+        #################### Get overall score ####################
+        
+        actions = pd.read_sql_query("""
+        SELECT bioguide_id,
+        sum(total_actions) AS total_actions
+        FROM (
+        SELECT * 
+        FROM
+        representatives_ideology_stats
+        WHERE bioguide_id = '{}')
+        AS rep_stats
+        GROUP BY (bioguide_id);
+        """.format(self.bioguide_id), open_connection())
+
+        scores = pd.read_sql_query("""
+        SELECT bioguide_id,
+        avg(tally_score) as tally_score
+        FROM (
+        SELECT * 
+        FROM
+        representatives_ideology_stats
+        WHERE bioguide_id = '{}')
+        AS rep_stats
+        GROUP BY (bioguide_id);
+        """.format(self.bioguide_id), 
+                                   open_connection())
+
+        overall = pd.merge(scores, actions, how='inner', on=['bioguide_id'])
+        overall.loc[0, 'type'] = 'overall'
+        overall.loc[0, 'sub_type_of'] = "default"
+        
+        #################### Get laddered up scores ####################
+        
+        scores = pd.read_sql_query("""
+        SELECT bioguide_id,
+        type,
+        avg(tally_score) as tally_score
+        FROM (
+        SELECT * 
+        FROM
+        representatives_ideology_stats
+        WHERE bioguide_id = '{}')
+        AS rep_stats
+        GROUP BY (bioguide_id, type);
+        """.format(self.bioguide_id), open_connection())
+
+        actions = pd.read_sql_query("""
+        SELECT bioguide_id,
+        type,
+        sum(total_actions) AS total_actions
+        FROM (
+        SELECT * 
+        FROM
+        representatives_ideology_stats
+        WHERE bioguide_id = '{}')
+        AS rep_stats
+        GROUP BY (bioguide_id, type);
+        """.format(self.bioguide_id), open_connection())
+
+        laddered_up = pd.merge(scores, actions, how='inner', on=['bioguide_id', 'type'])
+        laddered_up.loc[:, 'sub_type_of'] = 'overall'
+        overall = overall.append(laddered_up)
+        
+        
+        #################### Get individual scores ####################
+        
+        individual_beliefs = pd.read_sql_query("""
+        SELECT bioguide_id,
+        tally_score,
+        total_actions,
+        ideology_type AS type,
+        type AS sub_type_of
+        FROM
+        representatives_ideology_stats
+        WHERE bioguide_id = '{}';
+        """.format(self.bioguide_id), open_connection())
+        
+        return overall.append(individual_beliefs).reset_index(drop=True).to_dict(orient='records')
+
     
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
                 rep_votes_metrics=None, rep_sponsor_metrics=None,
