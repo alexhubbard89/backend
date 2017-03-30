@@ -117,7 +117,7 @@ except:
     bad_collection += """\n\tSenate Votes"""
 
 ## Social issues
-to_classify = ['women and minority rights', 'immigration', 'abortion', 'environmental protection', 'second amendment', 'obamacare', 'lgbt rights']
+to_classify = ['women and minority rights', 'abortion', 'obamacare', 'lgbt rights']
 
 ideology_data = tally_toolkit.Ideology()
 ideology_data.ideology_type = 'social'
@@ -139,10 +139,52 @@ for ideology_category in to_classify:
 
 
 ## Economic issues
-to_classify = ['taxes']
+to_classify = ['taxes', 'stimulus or market led recovery']
 
 ideology_data = tally_toolkit.Ideology()
 ideology_data.ideology_type = 'economy'
+for ideology_category in to_classify:
+    try: 
+        print 'Classify ideology - {}'.format(ideology_category)
+        ideology_data.ideology = ideology_category
+        tally_toolkit.Ideology.make_tally_score(ideology_data)
+        good_collection += """\n\tIdeology collection - {}""".format(ideology_category)
+        print 'Put ideology to sql - {}'.format(ideology_category)
+        try:
+            tally_toolkit.Ideology.put_finalized_ideology_stats_into_sql(ideology_data)
+            good_collection += """\n\tIdeology to sql - {}""".format(ideology_category)
+        except:
+            bad_collection += """\n\tIdeology to sql - {}""".format(ideology_category)
+
+    except:
+        bad_collection += """\n\tIdeology colection - {}""".format(ideology_category)
+
+## Domestic issues
+to_classify = ['environmental protection', 'second amendment']
+
+ideology_data = tally_toolkit.Ideology()
+ideology_data.ideology_type = 'domestic'
+for ideology_category in to_classify:
+    try: 
+        print 'Classify ideology - {}'.format(ideology_category)
+        ideology_data.ideology = ideology_category
+        tally_toolkit.Ideology.make_tally_score(ideology_data)
+        good_collection += """\n\tIdeology collection - {}""".format(ideology_category)
+        print 'Put ideology to sql - {}'.format(ideology_category)
+        try:
+            tally_toolkit.Ideology.put_finalized_ideology_stats_into_sql(ideology_data)
+            good_collection += """\n\tIdeology to sql - {}""".format(ideology_category)
+        except:
+            bad_collection += """\n\tIdeology to sql - {}""".format(ideology_category)
+
+    except:
+        bad_collection += """\n\tIdeology colection - {}""".format(ideology_category)
+
+## International issues
+to_classify = ['immigration', 'homeland security']
+
+ideology_data = tally_toolkit.Ideology()
+ideology_data.ideology_type = 'international'
 for ideology_category in to_classify:
     try: 
         print 'Classify ideology - {}'.format(ideology_category)
