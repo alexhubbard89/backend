@@ -1804,153 +1804,6 @@ class collect_legislation(object):
         self.bill_subjects_df = bill_subjects_df
         self.bills_to_get_df = bills_to_get_df
 
-class user_votes(object):
-    """
-    This class will be used to find
-    legislation that a user can vote on
-    and insert user votes to the db.
-    
-    Attributes:
-    user_id - user_id number
-    leg_for_user - what the user will vote on
-    roll_id - what user voted on
-    vote - how they voted
-    insert - if insert was successful
-    """
-    
-    def available_votes(self):
-        """
-        This method will be used to find
-        the legislation that a user can vote on.
-        It will only look for on passge bills
-        that the user has not voted on before.
-
-        Input:
-        user_id - To find what a user has voted on
-
-        REMEMBER THIS!
-        CONGRESS IS HARD CODED FOR NOW. 
-        REMEMBER TO FIX THIS IN THE FUTURE.
-        """
-
-        prev_voted = pd.read_sql_query("""SELECT * 
-        FROM user_votes 
-        where user_id = {}""".format(self.user_id), open_connection())
-
-
-        """Build string to exclude roll_ids
-        that the user has already voted on."""
-        roll_id = ''
-        for i in range(len(prev_voted)):
-            if i > 0:
-                roll_id += ' and roll_id != {}'.format(prev_voted.loc[i, 'roll_id'])
-            if i == 0:
-                roll_id += 'roll_id != {}'.format(prev_voted.loc[i, 'roll_id'])
-
-        
-        """Find anything for a user to vote on."""
-        leg_for_user = pd.read_sql_query("""SELECT * FROM house_vote_menu 
-            where congress = 115 
-            and lower(question) ilike '%' || 'passage' || '%'
-            and ({});""".format(roll_id), open_connection())
-        
-        """Find anything for a user to vote on."""
-        predictive_leg = pd.read_sql_query("""SELECT * FROM predictive_legislation
-            where predict_user_ideology = True 
-            and ({});""".format(roll_id), open_connection())
-        
-        ## Append data sets together
-        leg_for_user = leg_for_user.append(predictive_leg).reset_index(drop=True)
-        
-        ## Randomly select vote
-        search_index = np.random.randint(len(leg_for_user))
-        leg_for_user = pd.DataFrame(leg_for_user.loc[search_index]).transpose().reset_index(drop=True)
-
-        ## Fix Date column
-        leg_for_user['date'] = leg_for_user['date'].astype(str)
-
-        ## Remove columns that will have nulls from predictive table.
-        ## Eventually add main subject. But not for now
-        print leg_for_user
-        self.leg_for_user = leg_for_user.drop(['ideology_to_predict',
-                                              'predict_user_ideology'], 1)
-
-    def summarize_bill(self):
-        url = self.leg_for_user.loc[0, 'issue_link']
-        r = requests.get(url)
-        page = BeautifulSoup(r.content, 'lxml')
-        text = ''
-        try:
-            """If there is not bill-summary div then 
-            there is no summary."""
-            paragraph = page.find('div', id='bill-summary').findAll('p')
-
-            for i in range(len(paragraph)):
-                text += (str(unidecode(paragraph[i].text.strip())))
-
-            """Gensim breaks if less than 3 sentances. When scraping
-            the senetences lose period space. Add space to have more
-            sentences."""
-            text = text.replace('.', '. ').replace('.  ', '. ').replace('U. S. ', 'U.S. ').replace('H. R. ', 'H.R.')
-
-            try:
-                text_sum = summarize(text)
-                """If no summary was made or it's really long
-                then sumarize with a 50 word count"""
-                if (len(text_sum) > 100):
-                    text_sum = summarize(text, word_count=50)
-                if (len(text_sum) == 0):
-                    text_sum = summarize(text, word_count=100)
-            except:
-                print 'no summary'
-                text_sum = ''
-
-
-            if len(text_sum) > 0:
-                return text_sum.strip().replace('\n', '').replace('\t', '').replace('\"', '"' )
-            elif len(text) > 0:
-                return text.strip().replace('\n', '').replace('\t', '').replace('\"', '"' )
-            else:
-                return 'No summary available'
-        except:
-            return 'No summary available'
-
-        
-    def vote_to_db(self):
-        """
-        This method is used to insert the user's vote
-        on the roll_id to the user_votes table.        
-        """
-        
-        connection = open_connection()
-        cursor = connection.cursor()
-        
-        sql_command = """
-        insert into user_votes (
-        user_id,
-        roll_id,
-        vote) 
-        VALUES ({}, {}, {});""".format(
-        self.user_id,
-        self.roll_id,
-        self.vote)
-        
-        try:
-            cursor.execute(sql_command)
-            connection.commit()
-            self.insert = True
-        except:
-            connection.rollback()
-            self.insert = False
-        connection.close()
-    
-    def __init__(self, user_id=None, leg_for_user=None,
-                roll_id=None, vote=None, insert=None):
-        self.user_id = user_id
-        self.leg_for_user = leg_for_user
-        self.roll_id = roll_id
-        self.vote = vote
-        self.insert = insert
 
 class Performance(object):
     """
@@ -3146,7 +2999,19 @@ class Search(object):
                         
                     return pd.read_sql_query("""
                     SELECT * FROM (
-                    SELECT DISTINCT name,
+                    SELECT DISTINCT 
+                    address,
+                    bio_text,
+                    congress_url,
+                    facebook,
+                    leadership_position,
+                    phone,
+                    served_until,
+                    twitter_handle,
+                    twitter_url,
+                    website,
+                    year_elected,
+                    name,
                     bioguide_id,
                     state,
                     district,
@@ -3180,7 +3045,19 @@ class Search(object):
                 else:
                     return pd.read_sql_query("""
                     SELECT * FROM (
-                    SELECT DISTINCT name,
+                    SELECT DISTINCT 
+                    address,
+                    bio_text,
+                    congress_url,
+                    facebook,
+                    leadership_position,
+                    phone,
+                    served_until,
+                    twitter_handle,
+                    twitter_url,
+                    website,
+                    year_elected,
+                    name,
                     bioguide_id,
                     state,
                     district,
@@ -3223,7 +3100,19 @@ class Search(object):
                 
                 df =  pd.read_sql_query("""
                 SELECT * FROM (
-                SELECT DISTINCT name,
+                SELECT DISTINCT 
+                address,
+                bio_text,
+                congress_url,
+                facebook,
+                leadership_position,
+                phone,
+                served_until,
+                twitter_handle,
+                twitter_url,
+                website,
+                year_elected,
+                name,
                 bioguide_id,
                 state,
                 district,
@@ -3266,7 +3155,19 @@ class Search(object):
                     
                     df = pd.read_sql_query("""
                     SELECT * FROM (
-                    SELECT DISTINCT name,
+                    SELECT DISTINCT 
+                    address,
+                    bio_text,
+                    congress_url,
+                    facebook,
+                    leadership_position,
+                    phone,
+                    served_until,
+                    twitter_handle,
+                    twitter_url,
+                    website,
+                    year_elected,
+                    name,
                     bioguide_id,
                     state,
                     district,
@@ -3312,7 +3213,19 @@ class Search(object):
             
             return pd.read_sql_query("""
             SELECT * FROM (
-            SELECT DISTINCT name,
+            SELECT DISTINCT 
+            address,
+            bio_text,
+            congress_url,
+            facebook,
+            leadership_position,
+            phone,
+            served_until,
+            twitter_handle,
+            twitter_url,
+            website,
+            year_elected,
+            name,
             bioguide_id,
             state,
             district,
@@ -3402,7 +3315,19 @@ class Search(object):
 
         sql_query = """
         SELECT * FROM (
-        SELECT distinct name, 
+        SELECT distinct 
+        address,
+        bio_text,
+        congress_url,
+        facebook,
+        leadership_position,
+        phone,
+        served_until,
+        twitter_handle,
+        twitter_url,
+        website,
+        year_elected,
+        name, 
         bioguide_id, 
         state, 
         district, 
@@ -3481,14 +3406,32 @@ class Grade_reps(object):
             WHERE congress = {};""".format(
                 self.congress), open_connection())
 
-        find_senator = pd.read_sql("""
+        ## Find senators that voted during this time
+        date_range = pd.read_sql_query("""
+        SELECT min(date) AS min_date,
+        max(date) AS max_date
+        FROM senator_votes_tbl
+        WHERE congress = {}
+        """.format(self.congress), open_connection())
+        date_range.loc[0, 'min_date'] = date_range.loc[0, 'min_date'].year
+        date_range.loc[0, 'max_date'] = date_range.loc[0, 'max_date'].year
+
+        all_senate = pd.read_sql("""
         SELECT DISTINCT name,
         bioguide_id,
         state, district,
         party,
-        photo_url
+        photo_url, 
+        year_elected, 
+        served_until
         FROM congress_bio 
         WHERE chamber = 'senate';""", open_connection())
+        all_senate.loc[all_senate['served_until'] == 'Present', 'served_until'] = datetime.datetime.today().year
+        all_senate['year_elected'] = all_senate['year_elected'].astype(int)
+        all_senate['served_until'] = all_senate['served_until'].astype(int)
+
+        find_senator = all_senate.loc[((all_senate['year_elected'] <= date_range.loc[0, 'max_date']) &
+                       (all_senate['served_until'] >= date_range.loc[0, 'min_date']))]
 
         find_senator.loc[:, 'last_name'] = find_senator.loc[:, 'name'].apply(lambda x: x.split(',')[0])
         days_voted_s = pd.merge(days_voted_s, find_senator, how='left', on=['state', 'last_name']).drop_duplicates(['bioguide_id'])
@@ -3547,14 +3490,32 @@ class Grade_reps(object):
             WHERE congress = {};""".format(
                 self.congress), open_connection())
 
-        find_senator = pd.read_sql("""
+        ## Find senators that voted during this time
+        date_range = pd.read_sql_query("""
+        SELECT min(date) AS min_date,
+        max(date) AS max_date
+        FROM senator_votes_tbl
+        WHERE congress = {}
+        """.format(self.congress), open_connection())
+        date_range.loc[0, 'min_date'] = date_range.loc[0, 'min_date'].year
+        date_range.loc[0, 'max_date'] = date_range.loc[0, 'max_date'].year
+
+        all_senate = pd.read_sql("""
         SELECT DISTINCT name,
         bioguide_id,
         state, district,
         party,
-        photo_url
+        photo_url, 
+        year_elected, 
+        served_until
         FROM congress_bio 
         WHERE chamber = 'senate';""", open_connection())
+        all_senate.loc[all_senate['served_until'] == 'Present', 'served_until'] = datetime.datetime.today().year
+        all_senate['year_elected'] = all_senate['year_elected'].astype(int)
+        all_senate['served_until'] = all_senate['served_until'].astype(int)
+
+        find_senator = all_senate.loc[((all_senate['year_elected'] <= date_range.loc[0, 'max_date']) &
+                       (all_senate['served_until'] >= date_range.loc[0, 'min_date']))]
 
         find_senator.loc[:, 'last_name'] = find_senator.loc[:, 'name'].apply(lambda x: x.split(',')[0])
         rep_votes_s = pd.merge(rep_votes_s, find_senator, how='left', on=['state', 'last_name']).drop_duplicates(['bioguide_id'])
@@ -3630,15 +3591,17 @@ class Grade_reps(object):
         sen_sponsored.loc[:, 'sponsor_percent'] = sen_sponsored.loc[:, 'sponsor_percent']/100
 
         all_sponsored = house_sponsored.append(sen_sponsored)
+        
+        ## Reduce weight
+        all_sponsored['sponsor_percent'] = all_sponsored['sponsor_percent']*.5
         return all_sponsored[['bioguide_id', 'rep_sponsor', 'max_sponsor', 'sponsor_percent']]
-
-    
-    def get_current_leadership(self):
-        self.current_leader_ship = pd.read_sql_query("""
-        SELECT DISTINCT * FROM congress_bio
-        WHERE served_until = 'Present'
-        AND leadership_position != 'None'
-        ;""", open_connection())
+        
+        
+    def get_leadership(self):
+        self.leadership_df = pd.read_sql_query("""
+        SELECT DISTINCT * FROM historical_leadership
+        WHERE congress = {}
+        ;""".format(self.congress), open_connection())
         
     def committee_membership(self):
         """
@@ -3689,6 +3652,9 @@ class Grade_reps(object):
 
         ## Convert to percent
         df.loc[:, 'memberhip_percent'] = df.loc[:, 'memberhip_percent']/100
+        
+        ## Reduce weight
+        df['memberhip_percent'] = df['memberhip_percent']*.5
         self.committee_membership = df
         
     def committee_leadership(self):
@@ -3759,8 +3725,8 @@ class Grade_reps(object):
         voting = Grade_reps.rank_voting(self)
         sponsor = Grade_reps.rank_bills_made(self)
         became_law_df = Grade_reps.became_law(self)
+        Grade_reps.get_leadership(self)
         if self.congress == 115:
-            Grade_reps.get_current_leadership(self)
             Grade_reps.committee_membership(self)
             Grade_reps.committee_leadership(self)
 
@@ -3770,43 +3736,44 @@ class Grade_reps(object):
                  sponsor[['bioguide_id', 'sponsor_percent']],
                  how='left', on='bioguide_id').drop_duplicates('bioguide_id')
         total_grades = pd.merge(total_grades, became_law_df, how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
-        if self.congress == 115:
-            total_grades = pd.merge(total_grades, self.current_leader_ship[['bioguide_id', 'leadership_position']],
+        total_grades = pd.merge(total_grades, self.leadership_df[['bioguide_id', 'position']],
                                     how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
+        if self.congress == 115:
             total_grades = pd.merge(total_grades, self.committee_membership[['bioguide_id', 'memberhip_percent']],
                                     how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
             total_grades = pd.merge(total_grades, self.committee_leadership[['bioguide_id', 'leadership']],
                                     how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
-
-
-
+            
+            
         ## Make total grade - No extra credit
         if self.congress == 115:
             total_grades['total_grade'] = ((total_grades['percent_at_work'] + 
                                            total_grades['percent_votes'] + 
                                            total_grades['sponsor_percent'] +
-                                          total_grades['memberhip_percent'])/4)
+                                          total_grades['memberhip_percent'])/3)
         else:
             total_grades['total_grade'] = ((total_grades['percent_at_work'] + 
                                            total_grades['percent_votes'] + 
-                                           total_grades['sponsor_percent'])/3)
+                                           total_grades['sponsor_percent'])/2.5)
 
         ## Extra Credit: Became Law
         total_grades.loc[:, 'total_grade_extra_credit'] = (total_grades['tracker'] * .02) + total_grades['total_grade']
+        
+        ## Extra Credit: Congress Leadership
+        total_grades.loc[((total_grades['position'] != 0) &
+                          (total_grades['position'] != 'Speaker of the House')), 
+                         'total_grade_extra_credit'] = (total_grades.loc[((total_grades['position'] != 0) &
+                                                                          (total_grades['position'] != 'Speaker of the House')), 
+                                                                         'total_grade_extra_credit'] + .1)
 
-        if self.congress == 115:        
-        ## Extra Credit: Leadership
-            total_grades.loc[((total_grades['leadership_position'] != 0) &
-                              (total_grades['leadership_position'] != 'Speaker of the House')), 
-                             'total_grade_extra_credit'] = (total_grades.loc[((total_grades['leadership_position'] != 0) &
-                                                                              (total_grades['leadership_position'] != 'Speaker of the House')), 
-                                                                             'total_grade_extra_credit'] + .15)
+        if self.congress == 115:
+            ## Extra Credit: Committee Leadership
             total_grades.loc[total_grades['chamber'] == 'house', 'total_grade_extra_credit'] = (
                 total_grades.loc[total_grades['chamber'] == 'house', 'total_grade_extra_credit'] +
-                (total_grades.loc[total_grades['chamber'] == 'house', 'leadership']/25))
+                (total_grades.loc[total_grades['chamber'] == 'house', 'leadership']/50))
             total_grades.loc[total_grades['chamber'] == 'senate', 'total_grade_extra_credit'] = (
                 total_grades.loc[total_grades['chamber'] == 'senate', 'total_grade_extra_credit'] +
-                (total_grades.loc[total_grades['chamber'] == 'senate', 'leadership']/400))
+                (total_grades.loc[total_grades['chamber'] == 'senate', 'leadership']/200))
 
         ## Gaurdrails
         total_grades.loc[total_grades['total_grade_extra_credit'] > 1, 'total_grade_extra_credit'] = 1
@@ -3835,10 +3802,9 @@ class Grade_reps(object):
         total_grades = total_grades.drop(['grade_int'], 1)
 
         ## Remove speaker of the house from grading
-        if self.congress == 115:
-            total_grades.loc[((total_grades['leadership_position'] == 'Speaker of the House')),
-                            ['total_grade', 'total_grade_extra_credit',
-                            'letter_grade', 'letter_grade_extra_credit']] = None
+        total_grades.loc[((total_grades['position'] == 'Speaker of the House')),
+                        ['total_grade', 'total_grade_extra_credit',
+                        'letter_grade', 'letter_grade_extra_credit']] = None
 
         self.congress_grades = total_grades.sort_values(['total_grade'],ascending=False).reset_index(drop=True)
         
@@ -3851,7 +3817,7 @@ class Grade_reps(object):
                                                      'chamber',
                                                     'congress',
                                                     'leadership',
-                                                    'leadership_position',
+                                                    'position',
                                                     'letter_grade',
                                                     'letter_grade_extra_credit',
                                                     'memberhip_percent',
@@ -3918,7 +3884,7 @@ class Grade_reps(object):
                     where (bioguide_id = '{}' AND congress = '{}');""".format(
                     self.congress_grades.loc[i, 'chamber'],
                     int(self.congress_grades.loc[i, 'leadership']),
-                    self.congress_grades.loc[i, 'leadership_position'],
+                    self.congress_grades.loc[i, 'position'],
                     self.congress_grades.loc[i, 'letter_grade'],
                     self.congress_grades.loc[i, 'letter_grade_extra_credit'],
                     self.congress_grades.loc[i, 'memberhip_percent'],
@@ -3947,9 +3913,9 @@ class Grade_reps(object):
         cong_num = pd.read_sql_query("""select max(congress) from house_vote_menu;""",open_connection())
         self.congress = cong_num.loc[0, 'max']
 
-    def __init__(self, current_leader_ship=None, committee_membership=None, committee_leadership=None,
+    def __init__(self, leadership_df=None, committee_membership=None, committee_leadership=None,
                 congress=None, congress_grades=None):
-        self.current_leader_ship = current_leader_ship
+        self.leadership_df = leadership_df
         self.committee_membership = committee_membership
         self.committee_leadership = committee_leadership
         self.congress = congress
@@ -4264,58 +4230,6 @@ class Ideology(object):
 
         self.predictive_bills_votes = predictive_bills_votes_senate.append(predictive_bills_votes_house).reset_index(drop=True)
         self.bills_df = bills
-        
-        
-#     def get_votes_to_predict_ideology(self):
-#         predictive_legislation_sql = pd.read_sql_query("""
-#             SELECT * 
-#             FROM predictive_legislation_truncated 
-#             WHERE ideology_to_predict = '{}'""".format(self.ideology.lower()),
-#                                                            open_connection())
-        
-#         predictive_legislation_sql_house = predictive_legislation_sql.loc[predictive_legislation_sql['chamber'] == 'house'].reset_index(drop=True)
-#         predictive_legislation_sql_senate = predictive_legislation_sql.loc[predictive_legislation_sql['chamber'] == 'senate'].reset_index(drop=True)
-#         master_df = pd.DataFrame()
-#         ## Build query to find bills that are predictive   
-#         if len(predictive_legislation_sql_house):
-#             search_query = ''
-#             for i in range(0, len(predictive_legislation_sql_house)):
-#                 if i > 0:
-#                     search_query += " or (roll_id = {})".format(
-#                         predictive_legislation_sql_house.loc[i, 'roll_id'])
-#                 elif i == 0:
-#                     search_query += "(roll_id = {})".format(
-#                         predictive_legislation_sql_house.loc[i, 'roll_id'])
-
-#             ## Query db for predictive bills
-#             predictive_bills_votes_house = pd.read_sql_query("""SELECT *, cast(roll as int) as roll_int 
-#             FROM house_votes_tbl 
-#             WHERE ({})""".format(search_query), open_connection())
-
-#             predictive_bills_votes_house.loc[:, 'chamber'] = 'house'
-            
-#             self.predictive_bills_votes = master_df.append(predictive_bills_votes_house)
-        
-#         ## Build query to find bills that are predictive    
-#         if len(predictive_legislation_sql_senate):
-#             search_query = ''
-#             for i in range(0, len(predictive_legislation_sql_senate)):
-#                 if i > 0:
-#                     search_query += " or (roll_id = {})".format(
-#                         predictive_legislation_sql_senate.loc[i, 'roll_id'])
-#                 elif i == 0:
-#                     search_query += "(roll_id = {})".format(
-#                         predictive_legislation_sql_senate.loc[i, 'roll_id'])
-
-#             ## Query db for predictive bills
-#             predictive_bills_votes_senate = pd.read_sql_query("""SELECT *, cast(roll as int) as roll_int 
-#             FROM senator_votes_tbl 
-#             WHERE ({})""".format(search_query), open_connection())
-
-#             predictive_bills_votes_senate.loc[:, 'chamber'] = 'senate'
-        
-#             master_df = master_df.append(predictive_bills_votes_senate)
-#         return master_df
         
     def find_question_breakdown(self):
         ## Subset the roll call vote and take only needed data
@@ -4657,217 +4571,6 @@ class Ideology(object):
         except:
             return None
     
-    def update_predictive_legislation(self):
-        
-        if self.ideology.lower() == 'women and minority rights':
-            df = pd.read_sql_query("""SELECT * FROM all_legislation
-            WHERE lower(policy_area) ilike '%' || 'minority issues' || '%'
-            OR lower(policy_area) ilike '%' || 'disabled' || '%'
-            OR lower(policy_area) ilike '%' || 'women' || '%';""", open_connection())
-        elif self.ideology.lower() == 'immigration':
-            df = pd.read_sql_query("""SELECT * FROM all_legislation
-                WHERE lower(policy_area) ilike '%' || 'immigration' || '%';""", open_connection())
-        elif self.ideology.lower() == 'abortion':
-            df = pd.read_sql_query("""SELECT * FROM all_legislation
-                WHERE lower(policy_area) ilike '%' || 'abortion' || '%'
-                OR (lower(title_description) ilike '%' || 'abortion' || '%'
-                AND lower(policy_area) ilike '%' || 'health' || '%')
-                OR (lower(title_description) ilike '%' || 'abortion' || '%') 
-                OR (lower(title_description) ilike '%' || 'born-alive' || '%')
-                OR (lower(title_description) ilike '%' || 'unborn child' || '%')
-                OR (lower(title_description) ilike '%' || ' reproductive' || '%')
-                OR (lower(title_description) ilike '%' || 'planned parenthood' || '%');""", open_connection())
-        elif self.ideology.lower() == 'environmental protection':
-            df = pd.read_sql_query("""SELECT * FROM all_legislation
-                WHERE lower(policy_area) ilike '%' || 'environmental protection' || '%';""", open_connection())
-        elif self.ideology.lower() == 'second amendment':
-            df = pd.read_sql_query("""SELECT * FROM all_legislation
-                WHERE lower(title_description) ilike '%' || 'second amendment' || '%'
-                OR lower(title_description) ilike '%' || 'gun' || '%'
-                OR lower(title_description) ilike '%' || 'firearm' || '%';""", open_connection())
-        elif self.ideology.lower() == 'obamacare':
-            df = pd.read_sql_query("""SELECT * FROM all_legislation
-                WHERE lower(title_description) ilike '%' || 'obamacare' || '%'
-                OR lower(title_description) ilike '%' || 'affordable care act' || '%'
-                OR lower(title_description) ilike '%' || 'individual mandate' || '%'
-                OR lower(title_description) ilike '%' || 'medicare prescription drug price negotiation act' || '%'
-                OR lower(title_description) ilike '%' || 'children''s health insurance program reauthorization act' || '%'
-                OR lower(title_description) ilike '%' || 'family smoking prevention and tobacco control act' || '%'
-                OR lower(title_description) ilike '%' || 'health outcomes, planning, and education for alzheimer''s act' || '%'
-                ;""", open_connection())
-        else:
-            print 'incorrect ideology'
-            return
-
-        """
-        In this section I'm going to collect and clean
-        the data for the ideology in question.
-        """
-        ## Query the roll call bills
-        sql_query = 'SELECT * FROM house_vote_menu'
-        counter = 0
-        for url in df['issue_link']:
-            if counter != 0:
-                sql_query += " OR issue_link = '{}'".format(url)
-            elif counter == 0:
-                sql_query += " WHERE issue_link = '{}'".format(url)
-            counter += 1
-
-        sql_query += ';'
-        df_house = pd.read_sql_query(sql_query, open_connection())
-
-
-        ## Query the roll call votes
-        ## If there are a lot of bills it goes slow
-        ## Query in batches
-        predictive_bills_votes_house = pd.DataFrame()
-        for i in range(0, len(df_house), 5):
-            sql_query = 'SELECT * FROM house_votes_tbl'
-            for j in range(i, i+5):
-                if j != i:
-                    try:
-                        sql_query += " OR roll_id = {}".format(df_house.loc[j, 'roll_id'])
-                    except:
-                        "doesn't go that high"
-                elif j == i:
-                    sql_query += " WHERE roll_id = {}".format(df_house.loc[j, 'roll_id'])
-            sql_query += ";"
-
-            x = pd.read_sql_query(sql_query, open_connection())
-            predictive_bills_votes_house = predictive_bills_votes_house.append(x)
-
-
-        predictive_bills_votes_house.loc[:, 'chamber'] = 'house'
-        predictive_bills_votes_house = predictive_bills_votes_house.drop('role', 1)
-        predictive_bills_votes_house = predictive_bills_votes_house.loc[predictive_bills_votes_house['bioguide_id'] != 'None']
-        predictive_bills_votes_house = predictive_bills_votes_house.reset_index(drop=True)
-
-
-        ## Query the roll call votes
-        """
-        Find votes for senate. Because senate roll_call
-        doesn't have bioguide_ids I need to find them
-        from the congress_bio table
-        """
-
-        ## Convert issues column
-        for i in range(len(df)):
-            issue = re.split('(\d+)', df.loc[i, 'issue'])
-            issue_split = ''
-            for word in issue:
-                if len(word) > 0:
-                    issue_split += word
-                    issue_split += ' '
-            df.loc[i, 'issue'] = (issue_split).strip().lower()
-
-        ## Find bills from Senate vote menu
-        sql_query = 'SELECT * FROM senate_vote_menu'
-        for i in range(len(df)):
-            if i != 0:
-                sql_query += " OR (lower(issue) = '{}' AND congress = {})".format(df.loc[i, 'issue'],
-                                                                df.loc[i, 'congress'])
-            elif i == 0:
-                sql_query += " WHERE (lower(issue) = '{}' AND congress = {})".format(df.loc[i, 'issue'],
-                                                                df.loc[i, 'congress'])
-
-        sql_query += ';'
-        df_senate = pd.read_sql_query(sql_query, open_connection())
-
-
-        ## Find the roll_ids from the senate vote table
-        predictive_bills_votes_senate = pd.DataFrame()
-        for i in range(0, len(df_senate), 5):
-            sql_query = 'SELECT * FROM senator_votes_tbl'
-            for j in range(i, i+5):
-                if j != i:
-                    try:
-                        sql_query += " OR roll_id = {}".format(df_senate.loc[j, 'roll_id'])
-                    except:
-                        "doesn't go that high"
-                elif j == i:
-                    sql_query += " WHERE roll_id = {}".format(df_senate.loc[j, 'roll_id'])
-            sql_query += ";"
-
-            x = pd.read_sql_query(sql_query, open_connection())
-            predictive_bills_votes_senate = predictive_bills_votes_senate.append(x)
-        find_senator = pd.read_sql("""
-        SELECT DISTINCT name,
-        bioguide_id,
-        state
-        FROM (
-        SELECT * FROM 
-        congress_bio 
-        WHERE chamber = 'senate'
-        ORDER BY year_elected)
-        AS bio_sorted;""", open_connection())
-        find_senator['last_name'] = find_senator['name'].apply(lambda x: x.split(',')[0].split(' ')[0])
-        find_senator = find_senator.drop_duplicates(['bioguide_id']).reset_index(drop=True)
-        predictive_bills_votes_senate.loc[:, 'state_long'] = predictive_bills_votes_senate.loc[:, 'state'].apply(lambda x: str(us.states.lookup(x)))
-        predictive_bills_votes_senate = pd.merge(predictive_bills_votes_senate, find_senator, how='left', 
-                           left_on=['state_long', 'last_name'],
-                          right_on=['state', 'last_name'])
-        predictive_bills_votes_senate = predictive_bills_votes_senate.loc[predictive_bills_votes_senate['bioguide_id'].notnull()]
-        predictive_bills_votes_senate = predictive_bills_votes_senate[['member_full', 'bioguide_id', 'party',
-                                                                       'state_x','vote_cast', 'year', 'roll',
-                                                                       'congress', 'session', 'date', 'roll_id']]
-        predictive_bills_votes_senate.columns = ['member_full', 'bioguide_id', 'party', 'state',
-                                      'vote', 'year', 'roll', 'congress', 'session', 'date', 'roll_id']
-        predictive_bills_votes_senate.loc[:, 'chamber'] = 'senate'
-        predictive_bills_votes_senate = predictive_bills_votes_senate.loc[predictive_bills_votes_senate['bioguide_id'] != 'None']
-        predictive_bills_votes_senate = predictive_bills_votes_senate.reset_index(drop=True)
-
-
-        ## Put house and senate votes together
-        predictive_bills_votes = predictive_bills_votes_senate.append(predictive_bills_votes_house).reset_index(drop=True)
-        self.predictive_bills_votes = predictive_bills_votes
-
-        ## Grab the ideology stats
-        Ideology.get_ideology_stats(self)
-
-        ## Make ideology from roll call votes
-        Ideology.make_master_ideology(self)
-
-        ## Find partisan bills from roll call votes
-        Ideology.find_partisan_bills(self)
-
-        """
-        The partisan bills are the predictive bills.
-        Join the partisan/predictive bills with the original
-        vote menu collected.
-        """
-
-        df = self.partisan_bills_only[['roll_id', 'chamber']]#.drop_duplicates().reset_index(drop=True)
-        df.loc[:, 'roll_id'] = df.loc[:, 'roll_id'].astype(int)
-        df.loc[:, 'ideology_to_predict'] = self.ideology 
-        
-        """
-        Now that the data is clean I can 
-        put it into sql
-        """
-        connection = open_connection()
-        cursor = connection.cursor()
-
-        ## Put data into table
-        for i in range(len(df)):
-            x = list(df.loc[i,])
-            for p in [x]:
-                format_str = """
-                INSERT INTO predictive_legislation_truncated (
-                roll_id,
-                chamber,
-                ideology_to_predict)
-                VALUES ('{roll_id}', '{chamber}', '{ideology_to_predict}');"""
-
-
-                sql_command = format_str.format(roll_id=p[0], chamber=p[1], ideology_to_predict=p[2])
-            ## Commit to sql
-            try:
-                cursor.execute(sql_command)
-                connection.commit()
-            except:
-                ## Update what I got
-                connection.rollback()
-        connection.close()
         
     def make_tally_score(self):
         """
