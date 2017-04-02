@@ -153,26 +153,6 @@ def committee_membership():
     else:
         return jsonify(results=False)
 
-## Find Legislation for user to vote on
-@app.route("/legislation_for_user", methods=["POST"])
-def legislation_for_user():
-    vote_data = tally_toolkit.user_votes()
-    try:
-        data = json.loads(request.data.decode())
-        vote_data.user_id = data['user_id']
-    except:
-        vote_data.user_id = request.form['user_id']
-    tally_toolkit.user_votes.available_votes(vote_data)
-    try:
-        bill_summary = tally_toolkit.user_votes.summarize_bill(vote_data)
-        vote_data.leg_for_user.loc[0, 'summary'] = bill_summary
-    except:
-        vote_data.leg_for_user.loc[0, 'summary'] = 'No Summary'
-    if len(vote_data.leg_for_user) > 0:
-        return jsonify(vote_data.leg_for_user.to_dict(orient='records')[0])
-    else:
-        return jsonify(results=False)
-
 ## Put user vote in db
 @app.route("/user_vote", methods=["POST"])
 def user_vote():
@@ -468,11 +448,11 @@ def search():
         user_search.search_term = data['search_term']
     except:
         user_search.search_term = request.form['search_term']
-    try:
-        return jsonify(results=tally_toolkit.Search.search(user_search))
-    except:
-        ## If returns no data
-        return jsonify(results=[])
+    # try:
+    return jsonify(results=tally_toolkit.Search.search(user_search))
+    # except:
+    #     ## If returns no data
+    #     return jsonify(results=[])
 
 ## Get a reps grade
 @app.route("/rep_grade", methods=["POST"])
