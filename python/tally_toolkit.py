@@ -2967,7 +2967,7 @@ class Search(object):
                     self.zip_code = int(search_term_zip)
                     Search.check_zip_code(self)
                     if self.zip_code_check == True:
-                        return Search.find_dist_by_zip(self).to_dict(orient='records')
+                        return Search.find_dist_by_zip(self)
                 except:
                     "move on"
                 
@@ -3030,18 +3030,18 @@ class Search(object):
                     AND ({}))
                     AS rep_bio
                     LEFT JOIN (
-                    SELECT bioguide_id,
+                    SELECT bioguide_id as b_id,
                     letter_grade_extra_credit as letter_grade,
                     total_grade_extra_credit as number_grade
                     FROM congress_grades
                     WHERE congress = {}
                     ) AS grades 
-                    ON grades.bioguide_id = rep_bio.bioguide_id
+                    ON grades.b_id = rep_bio.bioguide_id
                     ;
                     """.format(
                         search_term_query,
                         dist_search[4:],
-                        cong_num), open_connection()).to_dict(orient='records')
+                        cong_num), open_connection())
                 else:
                     return pd.read_sql_query("""
                     SELECT * FROM (
@@ -3075,17 +3075,17 @@ class Search(object):
                     AND ({}))
                     AS rep_bio
                     LEFT JOIN (
-                    SELECT bioguide_id,
+                    SELECT bioguide_id as b_id,
                     letter_grade_extra_credit as letter_grade,
                     total_grade_extra_credit as number_grade
                     FROM congress_grades
                     WHERE congress = {}
                     ) AS grades 
-                    ON grades.bioguide_id = rep_bio.bioguide_id
+                    ON grades.b_id = rep_bio.bioguide_id
                     ;
                     """.format(
                         dist_search[4:],
-                        cong_num), open_connection()).to_dict(orient='records')
+                        cong_num), open_connection())
 
             """
             If you make it here then 
@@ -3130,13 +3130,13 @@ class Search(object):
                 AND (({}))
                         AS rep_bio
                         LEFT JOIN (
-                        SELECT bioguide_id,
+                        SELECT bioguide_id as b_id,
                         letter_grade_extra_credit as letter_grade,
                         total_grade_extra_credit as number_grade
                         FROM congress_grades
                         WHERE congress = {}
                         ) AS grades 
-                        ON grades.bioguide_id = rep_bio.bioguide_id
+                        ON grades.b_id = rep_bio.bioguide_id
                         ;
                 """.format(
                     search_term_query[4:],
@@ -3144,7 +3144,7 @@ class Search(object):
                     ), open_connection())
 
                 if len(df) > 0:
-                    return df.to_dict(orient='records')
+                    return df
                 else:
                     x = search_term.split(' ')
                     search_term_query = ''
@@ -3198,7 +3198,7 @@ class Search(object):
                         cong_num
                         ), open_connection())
 
-                    return df.drop(['b_id'],1).fillna(0).to_dict(orient='records')
+                    return df.drop(['b_id'],1).fillna(0)
 
 
             except:
@@ -3243,18 +3243,18 @@ class Search(object):
             AND (({}))
                     AS rep_bio
                     LEFT JOIN (
-                    SELECT bioguide_id,
+                    SELECT bioguide_id as b_id,
                     letter_grade_extra_credit as letter_grade,
                     total_grade_extra_credit as number_grade
                     FROM congress_grades
                     WHERE congress = {}
                     ) AS grades 
-                    ON grades.bioguide_id = rep_bio.bioguide_id
+                    ON grades.b_id = rep_bio.bioguide_id
                     ;
             """.format(
                 search_term_query[4:],
                 cong_num
-                ), open_connection()).to_dict(orient='records')
+                ), open_connection())
         except:
             'wtf'
     
@@ -3346,13 +3346,13 @@ class Search(object):
         OR (state = '{}' AND served_until = 'Present' AND chamber = 'senate'))
                 AS rep_bio
                 LEFT JOIN (
-                SELECT bioguide_id,
+                SELECT bioguide_id as b_id,
                 letter_grade_extra_credit as letter_grade,
                 total_grade_extra_credit as number_grade
                 FROM congress_grades
                 WHERE congress = {}
                 ) AS grades 
-                ON grades.bioguide_id = rep_bio.bioguide_id
+                ON grades.b_id = rep_bio.bioguide_id
                 ;""".format(dist_query, 
                     dist.loc[i, 'state_long'], 
                     cong_num)
