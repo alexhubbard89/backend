@@ -3198,7 +3198,7 @@ class Search(object):
                         cong_num
                         ), open_connection())
 
-                    return df.drop(['b_id'],1).fillna(0)
+                    return df.fillna(0)
 
 
             except:
