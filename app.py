@@ -449,8 +449,11 @@ def search():
     except:
         user_search.search_term = request.form['search_term']
     # try:
-    x = tally_toolkit.Search.search(user_search)
-    return jsonify(results=x.drop_duplicates(['bioguide_id']).drop(['b_id'],1).to_dict(orient='records'))
+
+    user_search.df = tally_toolkit.Search.search(user_search)
+    tally_toolkit.Search.add_sim(user_search)
+
+    return jsonify(results=user_search.df.drop_duplicates(['bioguide_id']).drop(['b_id'],1).to_dict(orient='records'))
     # except:
     #     ## If returns no data
     #     return jsonify(results=[])

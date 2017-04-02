@@ -22,6 +22,8 @@ from unidecode import unidecode
 from gensim.summarization import summarize
 import ast
 from scipy import stats
+import math
+from collections import Counter
 
 urlparse.uses_netloc.append("postgres")
 url = urlparse.urlparse(os.environ["DATABASE_URL"])
@@ -3358,11 +3360,69 @@ class Search(object):
                     cong_num)
 
         return pd.read_sql_query(sql_query, open_connection())
+
+    def get_cosine(self):
+
+        intersection = set(self.vec1.keys()) & set(self.vec2.keys())
+        numerator = sum([self.vec1[x] * self.vec2[x] for x in intersection])
+        
+        sum1 = sum([self.vec1[x]**2 for x in self.vec1.keys()])
+        sum2 = sum([self.vec2[x]**2 for x in self.vec2.keys()])
+        denominator = math.sqrt(sum1) * math.sqrt(sum2)
+
+        if not denominator:
+            return 0.0
+        else:
+            return float(numerator) / denominator
+
+    def text_to_vector(self):
+        WORD = re.compile(r'\w+')
+        words = WORD.findall(self.text)
+        return Counter(words)
+
+
+    def add_sim(self):
+        
+        if len(self.search_term) == 2:
+            state_search = str(us.states.lookup(unicode(self.search_term))).lower()
+            if state_search == 'none':
+                state_search = self.search_term
+        else:
+            state_search = self.search_term
+            
+        
+        for i in range(len(self.df)):
+
+            self.text = self.df.loc[i, 'name'].lower()
+            self.vec1 = Search.text_to_vector(self)
+
+            self.text = self.search_term
+            self.vec2 = Search.text_to_vector(self)
+
+            cosine_1 = Search.get_cosine(self)
+
+
+            self.text = self.df.loc[i, 'state'].lower()
+            self.vec1 = Search.text_to_vector(self)
+
+            self.text = state_search
+            self.vec2 = Search.text_to_vector(self)
+
+            cosine_2 = Search.get_cosine(self)
+
+            self.df.loc[i, 'sim'] = cosine_1 + cosine_2
+            
+        self.df = self.df.sort_values(['sim'], ascending=False).reset_index(drop=True).drop(['sim'],1)
     
     
-    def __init__(self, search_term=None, zip_code=None):
+    def __init__(self, search_term=None, zip_code=None, df=None, vec1=None, vec2=None,
+        text=None):
         self.search_term = search_term
         self.zip_code = zip_code
+        self.df = df
+        self.vec1 = vec1
+        self.vec2 = vec2
+        self.text = text
 
 class Grade_reps(object):
 

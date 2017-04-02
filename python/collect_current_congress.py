@@ -226,20 +226,47 @@ class bio_data_collector(object):
                     r = requests.get(url, data=dumps(payload), headers=headers)
                     page = BeautifulSoup(r.content, 'lxml')
 
-                twitter_array = []
+                twitter_array_raw = []
                 facebook_array = []
 
                 for href in page.find_all('a'):
                     if href.get('href') != None:
                         if 'twitter' in href.get('href').lower():
-                             twitter_array.append(href.get('href'))
+                             twitter_array_raw.append(href.get('href'))
                         if 'facebook' in href.get('href').lower():
                              facebook_array.append(href.get('href'))
+
+                twitter_array = []
+                for twitter in twitter_array_raw:
+                    if "twitter.com" in twitter:
+                        twitter_array.append(twitter)
+
+                if (len(twitter_array) == 0) & (len(facebook_array) == 0):
+                    url = df.loc[websites_search[i], 'website']
+                    print url
+                    r = requests.get(url, data=dumps(payload), headers=headers)
+                    page = BeautifulSoup(r.content, 'lxml')
+                    
+                    
+                    twitter_array_raw = []
+                    facebook_array = []
+
+                    for href in page.find_all('a'):
+                        if href.get('href') != None:
+                            if 'twitter' in href.get('href').lower():
+                                 twitter_array_raw.append(href.get('href'))
+                            if 'facebook' in href.get('href').lower():
+                                 facebook_array.append(href.get('href'))
+
+                    twitter_array = []
+                    for twitter in twitter_array_raw:
+                        if "twitter.com" in twitter:
+                            twitter_array.append(twitter)
 
                 try:
                     twitter_df = pd.DataFrame(pd.DataFrame(twitter_array)[0].str.replace('http://', '').str.replace('https://', ''))
                     twitter_url = twitter_df[0].value_counts().reset_index().loc[0, 'index']
-                    twitter_url = twitter_url.strip("javaScript:openWin('").strip(")'").replace('witter', 'twiter').replace('ttwitter', 'twiter')
+                    twitter_url = twitter_url.strip("javaScript:openWin('").strip(")'").replace('witter', 'twiter')
                     twitter_url = twitter_url.replace('//tt', 't').replace('http://', '').replace('https://', '').replace('//', '')
                     twitter_url = 'https://{}'.format(twitter_url)
                     try:
@@ -264,6 +291,9 @@ class bio_data_collector(object):
                 self.overall_df.loc[websites_search[i], 'twitter_handle'] = None
                 self.overall_df.loc[websites_search[i], 'twitter_url'] = None
                 self.overall_df.loc[websites_search[i], 'facebook'] = None
+
+        self.overall_df.loc[self.overall_df['twitter_url'].notnull(), 'twitter_url'] = self.overall_df.loc[self.overall_df['twitter_url'].notnull(), 'twitter_url'].apply(lambda x: x.replace("ttwiter", "twitter"))
+        self.overall_df.loc[self.overall_df['twitter_handle'].notnull(), 'twitter_handle'] = self.overall_df.loc[self.overall_df['twitter_handle'].notnull(), 'twitter_handle'].apply(lambda x: x.replace("@@", "@"))
                 
     def update_sql(self):
         connection = open_connection()
@@ -391,9 +421,9 @@ class bio_data_collector(object):
                     website = '{}', 
                     address = '{}',
                     phone = '{}',
-                    twitter_handle = '{}',
-                    twitter_url = '{}',
-                    facebook ='{}'
+                    -- twitter_handle = '{}',
+                    -- twitter_url = '{}',
+                    -- facebook ='{}'
                     WHERE (
                     bioguide_id = '{}' 
                     and chamber = '{}'
