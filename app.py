@@ -448,11 +448,12 @@ def search():
         user_search.search_term = data['search_term']
     except:
         user_search.search_term = request.form['search_term']
-    # try:
-    return jsonify(results=tally_toolkit.Search.search(user_search))
-    # except:
-    #     ## If returns no data
-    #     return jsonify(results=[])
+    try:
+        x = tally_toolkit.Search.search(user_search)
+        return jsonify(results=x.drop_duplicates(['bioguide_id']).drop(['b_id'],1).to_dict(orient='records'))
+    except:
+        ## If returns no data
+        return jsonify(results=[])
 
 ## Get a reps grade
 @app.route("/rep_grade", methods=["POST"])
