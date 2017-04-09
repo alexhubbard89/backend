@@ -24,6 +24,9 @@ import ast
 from scipy import stats
 import math
 from collections import Counter
+from StringIO import StringIO
+import urllib2
+from zipfile import ZipFile
 
 urlparse.uses_netloc.append("postgres")
 url = urlparse.urlparse(os.environ["DATABASE_URL"])
@@ -4757,3 +4760,201 @@ class Ideology(object):
         self.ideology_stats_by_rep_sums = ideology_stats_by_rep_sums
         self.bills_df = bills_df
         self.ideology_type = ideology_type
+
+class Campaign_contributions(object):
+    """
+    This class will be used to collect, 
+    store, and interact with campaign
+    finance data. The data will be 
+    collected from the FEC and stored
+    in our postgres database.
+    
+    
+    Attributes:
+    data_set_url - The FEC data we want to collect
+    df - The FEC data that was collected
+    """
+    
+    
+    def collect_data(self):
+        """
+        This method will be used to collect 
+        finance data and use the method
+        to put the collected data to the
+        db.
+        """
+        if self.data_set_url == 'ftp://ftp.fec.gov/FEC/2018/cm18.zip':
+            cols = ['CMTE_ID',
+                 'CMTE_NM',
+                 'TRES_NM',
+                 'CMTE_ST1',
+                 'CMTE_ST2',
+                 'CMTE_CITY',
+                 'CMTE_ST',
+                 'CMTE_ZIP',
+                 'CMTE_DSGN',
+                 'CMTE_TP',
+                 'CMTE_PTY_AFFILIATION',
+                 'CMTE_FILING_FREQ',
+                 'ORG_TP',
+                 'CONNECTED_ORG_NM',
+                 'CAND_ID']
+        elif self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/cn18.zip":
+            cols = ['CAND_ID', 
+                    'CAND_NAME', 
+                    'CAND_PTY_AFFILIATION', 
+                    'CAND_ELECTION_YR',
+                    'CAND_OFFICE_ST', 
+                    'CAND_OFFICE', 
+                    'CAND_OFFICE_DISTRICT', 
+                    'CAND_ICI',
+                    'CAND_STATUS', 
+                    'CAND_PCC', 
+                    'CAND_ST1', 
+                    'CAND_ST2', 
+                    'CAND_CITY',
+                    'CAND_ST', 
+                    'CAND_ZIP']
+        elif self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/ccl18.zip":
+            cols = ['CAND_ID',
+                    'CAND_ELECTION_YR',
+                    'FEC_ELECTION_YR',
+                    'CMTE_ID',
+                    'CMTE_TP',
+                    'CMTE_DSGN',
+                    'LINKAGE_ID']
+        elif self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/oth18.zip":
+            cols = ['CMTE_ID',
+                    'AMNDT_IND',
+                    'RPT_TP',
+                    'TRANSACTION_PGI',
+                    'IMAGE_NUM',
+                    'TRANSACTION_TP',
+                    'ENTITY_TP',
+                    'NAME',
+                    'CITY',
+                    'STATE',
+                    'ZIP_CODE',
+                    'EMPLOYER',
+                    'OCCUPATION',
+                    'TRANSACTION_DT',
+                    'TRANSACTION_AMT',
+                    'OTHER_ID',
+                    'TRAN_ID',
+                    'FILE_NUM',
+                    'MEMO_CD',
+                    'MEMO_TEXT',
+                    'SUB_ID']
+        elif self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/indiv18.zip":
+            cols = ['CMTE_ID',
+                    'AMNDT_IND',
+                    'RPT_TP',
+                    'TRANSACTION_PGI',
+                    'IMAGE_NUM',
+                    'TRANSACTION_TP',
+                    'ENTITY_TP',
+                    'NAME',
+                    'CITY',
+                    'STATE',
+                    'ZIP_CODE',
+                    'EMPLOYER',
+                    'OCCUPATION',
+                    'TRANSACTION_DT',
+                    'TRANSACTION_AMT',
+                    'OTHER_ID',
+                    'TRAN_ID',
+                    'FILE_NUM',
+                    'MEMO_CD',
+                    'MEMO_TEXT',
+                    'SUB_ID']
+        
+
+        ## Request zipped data
+        r = urllib2.urlopen(self.data_set_url).read()
+        file = ZipFile(StringIO(r))
+
+        ## Get all data
+        for f_open in file.namelist():
+            unzipped = file.open(f_open)
+            self.df = pd.read_csv(unzipped, sep="|", header=None)
+            self.df.columns = [cols]
+            Campaign_contributions.contributions_to_sql(self)
+            
+    def contributions_to_sql(self):
+
+        """This method will be used to put finance
+        data to the db"""
+
+        connection = open_connection()
+        cursor = connection.cursor()
+
+        ## Put data into table
+        for i in range(len(self.df)):
+            x = list(self.df.loc[i,])
+            string_1 = """INSERT INTO {} (""".format(self.db_tbl)
+            string_2 = """ VALUES ("""
+
+            for j in range(len(self.df.columns)):
+                string_1 += "\n{},".format(self.df.columns[j].lower())
+                ## Clean the data
+                if (("cand_election_yr" == self.df.columns[j].lower()) |
+                    ("fec_election_yr" == self.df.columns[j].lower())):
+                    string_2 += "'{}', ".format(int(sanitize(x[j])))
+                elif "transaction_dt"  == self.df.columns[j].lower():
+                    string_2 += "'{}', ".format(int(sanitize(x[j])))
+                elif "transaction_amt" == self.df.columns[j].lower():
+                    string_2 += "'{}', ".format(float(sanitize(x[j])))
+                else:
+                    string_2 += "'{}', ".format(sanitize(x[j]).replace('.0', ''))
+
+            string_1 = string_1[:-1] + ")"
+            string_2 = string_2[:-2] + ");"
+            sql_command = string_1 + string_2
+
+            try:
+                # Try to insert, if it can't inset then it should update
+                cursor.execute(sql_command)
+                connection.commit()
+            except:
+                connection.rollback()
+                ## If the update breaks then something is wrong
+                string_1 = """UPDATE {} 
+                SET""".format(self.db_tbl)
+                string_2 = """ WHERE ("""
+
+                for j in range(len(self.df.columns)):
+                    if self.df.columns[j].lower() != self.unique_id:
+                        ## Clean the data
+                        if (("cand_election_yr" == self.df.columns[j].lower()) |
+                            ("fec_election_yr" == self.df.columns[j].lower())):
+                            string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
+                                                             int(sanitize(x[j])))
+                        elif "transaction_dt"  == self.df.columns[j].lower():
+                            string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
+                                                             int(sanitize(x[j])))
+                        elif "transaction_amt" == self.df.columns[j].lower():
+                            string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
+                                                             float(sanitize(x[j])))
+                        else:
+                            string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
+                                                             sanitize(x[j]).replace('.0', ''))
+                        
+                    elif self.df.columns[j].lower() == self.unique_id:
+                        string_2 += "{} = '{}'".format(self.df.columns[j].lower(),
+                                                       sanitize(x[j]).replace('.0', ''))
+
+                string_1 = string_1[:-2]
+                string_2 += ");"
+
+                sql_command = string_1 + string_2
+                cursor.execute(sql_command)
+                connection.commit()
+
+        ## Close yo shit
+        connection.close()
+
+    def __init__(self, data_set_url=None, df=None, db_tbl=None, unique_id=None):
+        self.data_set_url = data_set_url
+        self.df = df
+        self.db_tbl = db_tbl
+        self.unique_id = unique_id
