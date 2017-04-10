@@ -15,6 +15,7 @@ from xml.etree.ElementTree import fromstring
 from json import dumps
 from xml.etree import ElementTree
 import datetime
+from pytz import reference
 import re
 import us
 from unidecode import unidecode
@@ -421,6 +422,35 @@ class user_info(object):
         OR (state = '{}' AND served_until = 'Present' AND chamber = 'senate')""".format(dist_query, dist.loc[i, 'state_long'],)
         
         return pd.read_sql_query(sql_query, open_connection())
+
+    def session_tracking(self):
+        
+        x = pd.read_sql_query("""
+        SELECT user_id, admin
+        FROM user_tbl
+        WHERE user_id = '{}'""".format(self.user_id), open_connection())
+        
+        if x.loc[0, 'admin'] == False:
+            ## If not admin then get login stats
+            connection = open_connection()
+            cursor = connection.cursor()
+
+            now = datetime.datetime.now()
+            tz = reference.LocalTimezone().tzname(now)
+
+            sql_command = """INSERT INTO user_sessions (
+                        user_id, 
+                        session_datetime,
+                        time_zone)
+                        VALUES ('{}', '{}', '{}');""".format(self.user_id, 
+                                                      now, 
+                                                      tz)
+            try:
+                cursor.execute(sql_command)
+                connection.commit()
+            except:
+                connection.rollback()
+            connection.close()
     
     def __init__(self, email=None, password=None, password_match=False, first_name=None,
                 last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None,
