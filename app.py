@@ -39,6 +39,7 @@ def login():
         if user.user_id != None:
             try:
                 user_data = tally_toolkit.user_info.get_user_data(user)
+                tally_toolkit.user_info.session_tracking(user)
                 print user_data
                 return jsonify(user_data.to_dict(orient='records')[0])
             except:
