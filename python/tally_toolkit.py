@@ -2081,20 +2081,48 @@ class Performance(object):
         
         self.rep_sponsor_metrics = all_sponsored
 
+
     def membership_stats(self):
         if self.chamber.lower() == 'house':
-            tbl = 'house_membership'
+            tbl = 'house_membership'        
+            x = pd.read_sql_query("""
+            SELECT * FROM congress_bio
+            WHERE chamber = '{}'
+            AND served_until = 'Present'
+            AND served_until = 'Present'
+            AND lower(state) != 'guam'
+            AND lower(state) != 'puerto rico'
+            AND lower(state) != 'district of columbia'
+            AND lower(state) != 'virgin islands'
+            AND lower(state) != 'american samoa'
+            AND lower(state) != 'northern miriana islands';
+            """.format(self.chamber.lower()), open_connection())
         elif self.chamber.lower() == 'senate':
             tbl = 'senate_membership'
-            
+            x = pd.read_sql_query("""
+            SELECT * FROM congress_bio
+            WHERE chamber = '{}'
+            AND served_until = 'Present'
+            AND served_until = 'Present'
+            AND lower(state) != 'guam'
+            AND lower(state) != 'puerto rico'
+            AND lower(state) != 'district of columbia'
+            AND lower(state) != 'virgin islands'
+            AND lower(state) != 'american samoa'
+            AND lower(state) != 'northern miriana islands';
+            """.format(self.chamber.lower()), open_connection())
+
         df = pd.read_sql_query("""
         SELECT * FROM {}""".format(tbl), open_connection())
-        
+
         df = df.groupby(['bioguide_id']).count()['committee'].reset_index(drop=False)
         df.columns = ['bioguide_id', 'num_committees']
+        df = pd.merge(x[['bioguide_id', 'party']], df,
+                     how='left', on='bioguide_id').drop(['party'], 1).fillna(0)
+        
         df['max_committees'] = df['num_committees'].max()
         df['percent'] = (df['num_committees'] / df['max_committees'])
-        
+
         ## Save it homie
         self.membership_stats_df = df.loc[df['bioguide_id'] == self.bioguide_id].reset_index(drop=True)
 
