@@ -4939,7 +4939,7 @@ class Campaign_contributions(object):
         ## Get all data
         for f_open in file.namelist():
             unzipped = file.open(f_open)
-            self.df = pd.read_csv(unzipped, sep="|", header=None)
+            self.df = pd.read_csv(unzipped, sep="|", header=None, low_memory=False)
             self.df.columns = [cols]
             print "this is how many rows"
             print len(self.df)
