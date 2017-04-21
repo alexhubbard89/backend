@@ -4974,46 +4974,46 @@ class Campaign_contributions(object):
             string_2 = string_2[:-2] + ");"
             sql_command = string_1 + string_2
 
-            try:
-                # Try to insert, if it can't inset then it should update
-                cursor.execute(sql_command)
-                connection.commit()
-                print "good {}".format(i)
-            except:
-                connection.rollback()
-                ## If the update breaks then something is wrong
-                string_1 = """UPDATE {} 
-                SET""".format(self.db_tbl)
-                string_2 = """ WHERE ("""
+            # try:
+            #     # Try to insert, if it can't inset then it should update
+            cursor.execute(sql_command)
+            connection.commit()
+            #     print "good {}".format(i)
+            # except:
+            #     connection.rollback()
+            #     ## If the update breaks then something is wrong
+            #     string_1 = """UPDATE {} 
+            #     SET""".format(self.db_tbl)
+            #     string_2 = """ WHERE ("""
 
-                for j in range(len(self.df.columns)):
-                    if self.df.columns[j].lower() != self.unique_id:
-                        ## Clean the data
-                        if (("cand_election_yr" == self.df.columns[j].lower()) |
-                            ("fec_election_yr" == self.df.columns[j].lower())):
-                            string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
-                                                             int(sanitize(x[j])))
-                        elif "transaction_dt"  == self.df.columns[j].lower():
-                            string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
-                                                             int(sanitize(x[j])))
-                        elif "transaction_amt" == self.df.columns[j].lower():
-                            string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
-                                                             float(sanitize(x[j])))
-                        else:
-                            string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
-                                                             sanitize(x[j]).replace('.0', ''))
+            #     for j in range(len(self.df.columns)):
+            #         if self.df.columns[j].lower() != self.unique_id:
+            #             ## Clean the data
+            #             if (("cand_election_yr" == self.df.columns[j].lower()) |
+            #                 ("fec_election_yr" == self.df.columns[j].lower())):
+            #                 string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
+            #                                                  int(sanitize(x[j])))
+            #             elif "transaction_dt"  == self.df.columns[j].lower():
+            #                 string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
+            #                                                  int(sanitize(x[j])))
+            #             elif "transaction_amt" == self.df.columns[j].lower():
+            #                 string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
+            #                                                  float(sanitize(x[j])))
+            #             else:
+            #                 string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
+            #                                                  sanitize(x[j]).replace('.0', ''))
                         
-                    elif self.df.columns[j].lower() == self.unique_id:
-                        string_2 += "{} = '{}'".format(self.df.columns[j].lower(),
-                                                       sanitize(x[j]).replace('.0', ''))
+            #         elif self.df.columns[j].lower() == self.unique_id:
+            #             string_2 += "{} = '{}'".format(self.df.columns[j].lower(),
+            #                                            sanitize(x[j]).replace('.0', ''))
 
-                string_1 = string_1[:-2]
-                string_2 += ");"
+            #     string_1 = string_1[:-2]
+            #     string_2 += ");"
 
-                sql_command = string_1 + string_2
-                cursor.execute(sql_command)
-                connection.commit()
-                print "good {}".format(i)
+            #     sql_command = string_1 + string_2
+            #     cursor.execute(sql_command)
+            #     connection.commit()
+            #     print "good {}".format(i)
 
         ## Close yo shit
         connection.close()
