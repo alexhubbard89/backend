@@ -4941,7 +4941,7 @@ class Campaign_contributions(object):
             unzipped = file.open(f_open)
             self.df = pd.read_csv(unzipped, sep="|", header=None)
             self.df.columns = [cols]
-            # Campaign_contributions.contributions_to_sql(self)
+            Campaign_contributions.contributions_to_sql(self)
             
     def contributions_to_sql(self):
 
