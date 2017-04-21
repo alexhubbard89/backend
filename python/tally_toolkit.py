@@ -4841,7 +4841,8 @@ class Campaign_contributions(object):
         to put the collected data to the
         db.
         """
-        if self.data_set_url == 'ftp://ftp.fec.gov/FEC/2018/cm18.zip':
+        if ((self.data_set_url == 'ftp://ftp.fec.gov/FEC/2018/cm18.zip') |
+            (self.data_set_url == 'ftp://ftp.fec.gov/FEC/2016/cm16.zip')):
             cols = ['CMTE_ID',
                  'CMTE_NM',
                  'TRES_NM',
@@ -4857,7 +4858,8 @@ class Campaign_contributions(object):
                  'ORG_TP',
                  'CONNECTED_ORG_NM',
                  'CAND_ID']
-        elif self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/cn18.zip":
+        elif ((self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/cn18.zip") |
+              (self.data_set_url == "ftp://ftp.fec.gov/FEC/2016/cn16.zip")):
             cols = ['CAND_ID', 
                     'CAND_NAME', 
                     'CAND_PTY_AFFILIATION', 
@@ -4873,7 +4875,8 @@ class Campaign_contributions(object):
                     'CAND_CITY',
                     'CAND_ST', 
                     'CAND_ZIP']
-        elif self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/ccl18.zip":
+        elif ((self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/ccl18.zip") |
+              (self.data_set_url == "ftp://ftp.fec.gov/FEC/2016/ccl16.zip")):
             cols = ['CAND_ID',
                     'CAND_ELECTION_YR',
                     'FEC_ELECTION_YR',
@@ -4881,7 +4884,8 @@ class Campaign_contributions(object):
                     'CMTE_TP',
                     'CMTE_DSGN',
                     'LINKAGE_ID']
-        elif self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/oth18.zip":
+        elif ((self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/oth18.zip") |
+              (self.data_set_url == "ftp://ftp.fec.gov/FEC/2016/oth16.zip")):
             cols = ['CMTE_ID',
                     'AMNDT_IND',
                     'RPT_TP',
@@ -4903,7 +4907,8 @@ class Campaign_contributions(object):
                     'MEMO_CD',
                     'MEMO_TEXT',
                     'SUB_ID']
-        elif self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/indiv18.zip":
+        elif ((self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/indiv18.zip")| 
+            (self.data_set_url == "ftp://ftp.fec.gov/FEC/2016/indiv16.zip")):
             cols = ['CMTE_ID',
                     'AMNDT_IND',
                     'RPT_TP',
@@ -4936,7 +4941,7 @@ class Campaign_contributions(object):
             unzipped = file.open(f_open)
             self.df = pd.read_csv(unzipped, sep="|", header=None)
             self.df.columns = [cols]
-            Campaign_contributions.contributions_to_sql(self)
+            # Campaign_contributions.contributions_to_sql(self)
             
     def contributions_to_sql(self):
 

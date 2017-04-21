@@ -8,7 +8,7 @@ import imp
 tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
 
 contributions = tally_toolkit.Campaign_contributions()
-contributions.data_set_url = 'ftp://ftp.fec.gov/FEC/2018/cm18.zip'
+contributions.data_set_url = 'ftp://ftp.fec.gov/FEC/2016/cm16.zip'
 contributions.db_tbl = "fec_committee_master"
 contributions.unique_id = "cmte_id"
 tally_toolkit.Campaign_contributions.collect_data(contributions)
