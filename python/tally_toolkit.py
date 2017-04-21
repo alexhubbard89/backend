@@ -4976,8 +4976,8 @@ class Campaign_contributions(object):
 
             try:
                 # Try to insert, if it can't inset then it should update
-            cursor.execute(sql_command)
-            connection.commit()
+                cursor.execute(sql_command)
+                connection.commit()
                 print "good {}".format(i)
             except:
                 connection.rollback()
