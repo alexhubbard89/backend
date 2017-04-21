@@ -13,4 +13,5 @@ contributions.db_tbl = "fec_committee_transactions_2016"
 contributions.unique_id = "sub_id"
 tally_toolkit.Campaign_contributions.collect_data(contributions)
 
+
 print 'done FEC Any Transaction from One Committee to Another'

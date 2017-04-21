@@ -4938,8 +4938,11 @@ class Campaign_contributions(object):
 
         ## Get all data
         for f_open in file.namelist():
+            print "made it"
             unzipped = file.open(f_open)
+            print "now got here"
             self.df = pd.read_csv(unzipped, sep="|", header=None, low_memory=False)
+            print "data is loaded"
             self.df.columns = [cols]
             print "this is how many rows"
             print len(self.df)
