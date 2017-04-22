@@ -4949,7 +4949,7 @@ class Campaign_contributions(object):
                 if i % 1000 == 0:
                     print 'Loaded {}'.format(i)
                 self.df = pd.DataFrame(data=(loaded_data[i].split("|"))).transpose()
-                self.df.loc[0, len(x.columns)-1] = self.df.loc[0, len(x.columns)-1].replace('\n', '')
+                self.df.loc[0, len(self.df.columns)-1] = self.df.loc[0, len(self.df.columns)-1].replace('\n', '')
                 self.df.columns = [cols]
                 Campaign_contributions.contributions_to_sql(self)
             
@@ -4977,7 +4977,7 @@ class Campaign_contributions(object):
                     try:
                         string_2 += "'{}', ".format(int(x[j]))
                     except:
-                        string_2 += "'{}', ".format(None)
+                        string_2 += "'{}', ".format(0)
                 elif "transaction_amt" == self.df.columns[j].lower():
                     string_2 += "'{}', ".format(float(x[j]))
                 else:
@@ -5010,7 +5010,7 @@ class Campaign_contributions(object):
                                 string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
                                                                  int(x[j]))
                             except:
-                                string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(), None)
+                                string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(), 0)
                         elif "transaction_amt" == self.df.columns[j].lower():
                             string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
                                                              float(x[j]))
