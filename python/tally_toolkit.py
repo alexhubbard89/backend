@@ -4949,6 +4949,7 @@ class Campaign_contributions(object):
                 if i % 1000 == 0:
                     print 'Loaded {}'.format(i)
                 self.df = pd.DataFrame(data=(loaded_data[i].split("|"))).transpose()
+                self.df.loc[0, len(x.columns)-1] = self.df.loc[0, len(x.columns)-1].replace('\n', '')
                 self.df.columns = [cols]
                 Campaign_contributions.contributions_to_sql(self)
             
@@ -4976,7 +4977,7 @@ class Campaign_contributions(object):
                     try:
                         string_2 += "'{}', ".format(int(x[j]))
                     except:
-                        string_2 += "'{}', ".format(x[j])
+                        string_2 += "'{}', ".format(None)
                 elif "transaction_amt" == self.df.columns[j].lower():
                     string_2 += "'{}', ".format(float(x[j]))
                 else:
@@ -5003,16 +5004,16 @@ class Campaign_contributions(object):
                         if (("cand_election_yr" == self.df.columns[j].lower()) |
                             ("fec_election_yr" == self.df.columns[j].lower())):
                             string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
-                                                             int(sanitize(x[j])))
-                        elif "transaction_dt"  == self.df.columns[j].lower():
+                                                             int(x[j]))
+                        elif "transaction_dt" == self.df.columns[j].lower():
                             try:
                                 string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
-                                                                 int(sanitize(x[j])))
+                                                                 int(x[j]))
                             except:
-                                string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(), sanitize(x[j]))
+                                string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(), None)
                         elif "transaction_amt" == self.df.columns[j].lower():
                             string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
-                                                             float(sanitize(x[j])))
+                                                             float(x[j]))
                         else:
                             string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
                                                              sanitize(x[j]).replace('.0', ''))
