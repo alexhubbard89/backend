@@ -4941,12 +4941,8 @@ class Campaign_contributions(object):
             print "made it"
             unzipped = file.open(f_open)
             print "now got here"
-            if ((self.data_set_url == "ftp://ftp.fec.gov/FEC/2018/oth18.zip") |
-                (self.data_set_url == "ftp://ftp.fec.gov/FEC/2016/oth16.zip")):
-                self.df = pd.read_csv(unzipped, sep="|", header=None,
-                    dtype={"10": str, "11": str, "15": str, "18": str, "19": str})
-            else:
-                self.df = pd.read_csv(unzipped, sep="|", header=None)
+            self.df = pd.read_csv(unzipped, sep="|", header=None,
+                dtype={"10": str, "11": str, "12": str, "15": str, "18": str, "19": str})
             print "data is loaded"
             self.df.columns = [cols]
             print "this is how many rows"
