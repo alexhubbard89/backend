@@ -5005,8 +5005,11 @@ class Campaign_contributions(object):
                             string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
                                                              int(sanitize(x[j])))
                         elif "transaction_dt"  == self.df.columns[j].lower():
-                            string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
-                                                             int(sanitize(x[j])))
+                            try:
+                                string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
+                                                                 int(sanitize(x[j])))
+                            except:
+                                string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(), sanitize(x[j]))
                         elif "transaction_amt" == self.df.columns[j].lower():
                             string_1 += "\n{}='{}', ".format(self.df.columns[j].lower(),
                                                              float(sanitize(x[j])))
