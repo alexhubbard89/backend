@@ -4949,7 +4949,6 @@ class Campaign_contributions(object):
                 if i % 1000 == 0:
                     print 'Loaded {}'.format(i)
                 self.df = pd.DataFrame(data=(loaded_data[i].split("|"))).transpose()
-                print "data is loaded"
                 self.df.columns = [cols]
                 Campaign_contributions.contributions_to_sql(self)
             
