@@ -4944,15 +4944,12 @@ class Campaign_contributions(object):
             # self.df = pd.read_csv(unzipped, sep="|", header=None, low_memory=False)
             print "load a lot of data"
             loaded_data = unzipped.readlines()
-            self.df = pd.DataFrame()
             print "{} loops to load".format(len(loaded_data))
             for i in range(len(loaded_data)):
-                self.df = self.df.append(pd.DataFrame(data=(loaded_data[i].split("|"))).transpose())
-            print "data is loaded"
-            self.df.columns = [cols]
-            print "this is how many rows"
-            print len(self.df)
-            Campaign_contributions.contributions_to_sql(self)
+                self.df = pd.DataFrame(data=(loaded_data[i].split("|"))).transpose()
+                print "data is loaded"
+                self.df.columns = [cols]
+                Campaign_contributions.contributions_to_sql(self)
             
     def contributions_to_sql(self):
 
