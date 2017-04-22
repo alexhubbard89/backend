@@ -4945,7 +4945,7 @@ class Campaign_contributions(object):
             print "load a lot of data"
             loaded_data = unzipped.readlines()
             print "{} loops to load".format(len(loaded_data))
-            for i in range(len(loaded_data)):
+            for i in range(58000, len(loaded_data)):
                 if i % 1000 == 0:
                     print 'Loaded {}'.format(i)
                 self.df = pd.DataFrame(data=(loaded_data[i].split("|"))).transpose()
@@ -4973,7 +4973,10 @@ class Campaign_contributions(object):
                     ("fec_election_yr" == self.df.columns[j].lower())):
                     string_2 += "'{}', ".format(int(x[j]))
                 elif "transaction_dt"  == self.df.columns[j].lower():
-                    string_2 += "'{}', ".format(int(x[j]))
+                    try:
+                        string_2 += "'{}', ".format(int(x[j]))
+                    except:
+                        string_2 += "'{}', ".format(x[j])
                 elif "transaction_amt" == self.df.columns[j].lower():
                     string_2 += "'{}', ".format(float(x[j]))
                 else:
