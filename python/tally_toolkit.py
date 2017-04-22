@@ -4945,7 +4945,7 @@ class Campaign_contributions(object):
             print "load a lot of data"
             loaded_data = unzipped.readlines()
             self.df = pd.DataFrame()
-            print "{} loops to load".format(i)
+            print "{} loops to load".format(len(loaded_data))
             for i in range(len(loaded_data)):
                 self.df = self.df.append(pd.DataFrame(data=(loaded_data[i].split("|"))).transpose())
             print "data is loaded"
