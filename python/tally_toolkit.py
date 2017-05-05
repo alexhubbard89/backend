@@ -2067,7 +2067,7 @@ class Performance(object):
                     AND lower(state) != 'district of columbia'
                     AND lower(state) != 'virgin islands'
                     AND lower(state) != 'american samoa'
-                    AND lower(state) != 'northern miriana islands';""", open_connection())
+                    AND lower(state) != 'northern mariana islands';""", open_connection())
 
         all_sponsored = pd.merge(all_cong, all_sponsored, how='left', on='bioguide_id').fillna(0)
         
@@ -2095,7 +2095,7 @@ class Performance(object):
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
             AND lower(state) != 'american samoa'
-            AND lower(state) != 'northern miriana islands';
+            AND lower(state) != 'northern mariana islands';
             """.format(self.chamber.lower()), open_connection())
         elif self.chamber.lower() == 'senate':
             tbl = 'senate_membership'
@@ -2109,7 +2109,7 @@ class Performance(object):
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
             AND lower(state) != 'american samoa'
-            AND lower(state) != 'northern miriana islands';
+            AND lower(state) != 'northern mariana islands';
             """.format(self.chamber.lower()), open_connection())
 
         df = pd.read_sql_query("""
@@ -2190,7 +2190,7 @@ class Performance(object):
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
             AND lower(state) != 'american samoa'
-            AND lower(state) != 'northern miriana islands';""", open_connection())
+            AND lower(state) != 'northern mariana islands';""", open_connection())
 
             ## Get 
             days_voted = pd.merge(find_house, days_voted, how='left', on='bioguide_id')
@@ -2288,7 +2288,7 @@ class Performance(object):
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
             AND lower(state) != 'american samoa'
-            AND lower(state) != 'northern miriana islands';""", open_connection())
+            AND lower(state) != 'northern mariana islands';""", open_connection())
 
             rep_votes = pd.merge(find_house, rep_votes, how='left', on='bioguide_id')
             
@@ -2389,7 +2389,7 @@ class Performance(object):
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
             AND lower(state) != 'american samoa'
-            AND lower(state) != 'northern miriana islands';""", open_connection())
+            AND lower(state) != 'northern mariana islands';""", open_connection())
 
         all_sponsored = pd.merge(find_reps, all_sponsored, how='left', on='bioguide_id')
 
@@ -2457,7 +2457,7 @@ class Performance(object):
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
             AND lower(state) != 'american samoa'
-            AND lower(state) != 'northern miriana islands'
+            AND lower(state) != 'northern mariana islands'
             ;""", open_connection())
         
         ## stats
@@ -3088,7 +3088,7 @@ class Search(object):
                     AND lower(state) != 'district of columbia'
                     AND lower(state) != 'virgin islands'
                     AND lower(state) != 'american samoa'
-                    AND lower(state) != 'northern miriana islands'
+                    AND lower(state) != 'northern mariana islands'
                     {}
                     AND ({}))
                     AS rep_bio
@@ -3134,7 +3134,7 @@ class Search(object):
                     AND lower(state) != 'district of columbia'
                     AND lower(state) != 'virgin islands'
                     AND lower(state) != 'american samoa'
-                    AND lower(state) != 'northern miriana islands'
+                    AND lower(state) != 'northern mariana islands'
                     AND ({}))
                     AS rep_bio
                     LEFT JOIN (
@@ -3189,7 +3189,7 @@ class Search(object):
                 AND lower(state) != 'district of columbia'
                 AND lower(state) != 'virgin islands'
                 AND lower(state) != 'american samoa'
-                AND lower(state) != 'northern miriana islands'
+                AND lower(state) != 'northern mariana islands'
                 AND (({}))
                         AS rep_bio
                         LEFT JOIN (
@@ -3302,7 +3302,7 @@ class Search(object):
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
             AND lower(state) != 'american samoa'
-            AND lower(state) != 'northern miriana islands'
+            AND lower(state) != 'northern mariana islands'
             AND (({}))
                     AS rep_bio
                     LEFT JOIN (
@@ -3405,7 +3405,7 @@ class Search(object):
         AND lower(state) != 'district of columbia'
         AND lower(state) != 'virgin islands'
         AND lower(state) != 'american samoa'
-        AND lower(state) != 'northern miriana islands')
+        AND lower(state) != 'northern mariana islands')
         OR (state = '{}' AND served_until = 'Present' AND chamber = 'senate'))
                 AS rep_bio
                 LEFT JOIN (
@@ -3690,7 +3690,7 @@ class Grade_reps(object):
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
             AND lower(state) != 'american samoa'
-            AND lower(state) != 'northern miriana islands';""", open_connection())
+            AND lower(state) != 'northern mariana islands';""", open_connection())
 
         all_sponsored = pd.merge(all_sponsored, find_reps, how='left', on='bioguide_id').drop_duplicates(['bioguide_id'])
 
@@ -3744,7 +3744,7 @@ class Grade_reps(object):
         AND lower(state) != 'district of columbia'
         AND lower(state) != 'virgin islands'
         AND lower(state) != 'american samoa'
-        AND lower(state) != 'northern miriana islands'
+        AND lower(state) != 'northern mariana islands'
         ;""", open_connection())
 
         house_membership = pd.read_sql_query("""
@@ -3798,7 +3798,7 @@ class Grade_reps(object):
         AND lower(state) != 'district of columbia'
         AND lower(state) != 'virgin islands'
         AND lower(state) != 'american samoa'
-        AND lower(state) != 'northern miriana islands'
+        AND lower(state) != 'northern mariana islands'
         ;""", open_connection())
 
         house_membership = pd.read_sql_query("""
