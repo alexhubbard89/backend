@@ -421,9 +421,6 @@ class bio_data_collector(object):
                     website = '{}', 
                     address = '{}',
                     phone = '{}',
-                    -- twitter_handle = '{}',
-                    -- twitter_url = '{}',
-                    -- facebook ='{}'
                     WHERE (
                     bioguide_id = '{}' 
                     and chamber = '{}'
@@ -438,9 +435,6 @@ class bio_data_collector(object):
                     self.overall_df.loc[i, 'website'],
                     self.overall_df.loc[i, 'address'],
                     self.overall_df.loc[i, 'phone'],
-                    self.overall_df.loc[i, 'twitter_handle'],
-                    self.overall_df.loc[i, 'twitter_url'],
-                    self.overall_df.loc[i, 'facebook'],
                     self.overall_df.loc[i, 'bioguide_id'],
                     self.overall_df.loc[i, 'chamber'],
                     int(self.overall_df.loc[i, 'year_elected']))    
