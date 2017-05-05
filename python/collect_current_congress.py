@@ -352,6 +352,7 @@ class bio_data_collector(object):
 
         ## Put data into table
         for i in range(len(self.overall_df)):
+            worked = False
             try:
                 self.overall_df.loc[i, 'bio_text'] = self.overall_df.loc[i, 'bio_text'].replace("'", "''")
             except:
@@ -405,8 +406,12 @@ class bio_data_collector(object):
                 try:
                     cursor.execute(sql_command)
                     connection.commit()
-
+                    worked = True
                 except:
+                    worked = False
+
+                # except:
+                if worked == False:
                     ## Update what I got
                     connection.rollback()
                     sql_command = """UPDATE congress_bio 
@@ -420,7 +425,7 @@ class bio_data_collector(object):
                     leadership_position = '{}', 
                     website = '{}', 
                     address = '{}',
-                    phone = '{}',
+                    phone = '{}'
                     WHERE (
                     bioguide_id = '{}' 
                     and chamber = '{}'

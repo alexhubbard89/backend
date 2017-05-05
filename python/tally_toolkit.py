@@ -1872,36 +1872,70 @@ class Performance(object):
         legislatoin and compare it to the
         total number of days that roll call
         voting happened.
-        
+
         This metric will be a proxy for 
         days showing up to work.
         """
-    
+
         days_voted = pd.read_sql_query("""
-        SELECT distinct_votes.bioguide_id, 
-        count(distinct_votes.bioguide_id) as days_at_work
-        FROM (
-        SELECT DISTINCT bioguide_id, date
-        FROM house_votes_tbl
-        where congress = {}
-        AND bioguide_id = '{}'
-        AND vote != 'Not Voting')
-        as distinct_votes
-        GROUP BY bioguide_id;
-        """.format(self.congress_num,
-                   self.bioguide_id), open_connection())
-        
+                    SELECT DISTINCT bioguide_id, date
+                    FROM house_votes_tbl
+                    where congress = {}
+                    AND bioguide_id = '{}'
+                    AND vote != 'Not Voting';
+                    """.format(self.congress_num,
+                               self.bioguide_id), open_connection())
+
+        total_days = pd.read_sql_query("""
+                    SELECT DISTINCT(date) as total_work_days 
+                    FROM house_votes_tbl 
+                    WHERE congress = {}
+                    ORDER BY total_work_days
+                    ;
+                    """.format(self.congress_num),open_connection())
+
+        if len(total_days) > 5:
+            days_voted = pd.read_sql_query("""
+                        SELECT DISTINCT bioguide_id, date
+                        FROM house_votes_tbl
+                        where congress = {}
+                        AND bioguide_id = '{}'
+                        AND vote != 'Not Voting';
+                        """.format(self.congress_num,
+                               self.bioguide_id), open_connection())
+            if min_date.loc[0, 'min'] > total_days.loc[5, 'total_work_days']:                
+                days_voted = pd.DataFrame(data=len(days_voted), columns=['total_work_days'])
+                days_voted.loc[:, 'total_work_days'] = len(total_days.loc[total_days['total_work_days'] >= min_date.loc[0, 'min']])
+                days_voted['percent_at_work'] = (days_voted['days_at_work']/
+                                                 days_voted['total_work_days'])
+                self.days_voted = days_voted
+                return 
+
         vote_dates = pd.read_sql_query("""
-        SELECT COUNT(DISTINCT(date)) as total_work_days 
-        FROM house_votes_tbl 
-        WHERE congress = {};
-        """.format(self.congress_num),open_connection())
-        
+                    SELECT COUNT(DISTINCT(date)) as total_work_days 
+                    FROM house_votes_tbl 
+                    WHERE congress = {};
+                    """.format(self.congress_num),open_connection())
+
+        days_voted = pd.read_sql_query("""
+                    SELECT distinct_votes.bioguide_id, 
+                    count(distinct_votes.bioguide_id) as days_at_work
+                    FROM (
+                    SELECT DISTINCT bioguide_id, date
+                    FROM house_votes_tbl
+                    where congress = {}
+                    AND bioguide_id = '{}'
+                    AND vote != 'Not Voting')
+                    as distinct_votes
+                    GROUP BY bioguide_id;
+                    """.format(self.congress_num,
+                               self.bioguide_id), open_connection())
+
         ## Join and get percent
         days_voted.loc[:, 'total_work_days'] = vote_dates.loc[0, 'total_work_days']
         days_voted['percent_at_work'] = (days_voted['days_at_work']/
                                          days_voted['total_work_days'])
-        
+
         self.days_voted = days_voted
         
     def num_days_voted_senate(self):
