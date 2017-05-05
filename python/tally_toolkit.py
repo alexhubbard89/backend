@@ -1895,14 +1895,16 @@ class Performance(object):
                     """.format(self.congress_num),open_connection())
 
         if len(total_days) > 5:
-            days_voted = pd.read_sql_query("""
+            min_date = pd.read_sql_query("""
+                        SELECT MIN(date) FROM (
                         SELECT DISTINCT bioguide_id, date
                         FROM house_votes_tbl
                         where congress = {}
                         AND bioguide_id = '{}'
-                        AND vote != 'Not Voting';
+                        AND vote != 'Not Voting')
+                        AS dates;
                         """.format(self.congress_num,
-                               self.bioguide_id), open_connection())
+                                   self.bioguide_id), open_connection())
             if min_date.loc[0, 'min'] > total_days.loc[5, 'total_work_days']:                
                 days_voted = pd.DataFrame(data=len(days_voted), columns=['total_work_days'])
                 days_voted.loc[:, 'total_work_days'] = len(total_days.loc[total_days['total_work_days'] >= min_date.loc[0, 'min']])
