@@ -2601,10 +2601,30 @@ class Performance(object):
         return overall.append(individual_beliefs).reset_index(drop=True).to_dict(orient='records')
 
     
+    def get_current_performance(self):
+        if self.how == 'bioguide_id':
+            self.current_stats = pd.read_sql_query("""
+                                 SELECT * FROM {}
+                                 WHERE bioguide_id = '{}'
+                                 """.format(self.table,
+                                            self.bioguide_id), 
+                                                   open_connection())
+        elif self.how == 'chamber':
+            self.current_stats = pd.read_sql_query("""
+                                 SELECT * FROM {}
+                                 WHERE chamber = '{}'
+                                 """.format(self.table,
+                                            self.chamber), 
+                                                   open_connection()
+                                                  ).drop(['chamber'], 1).sort_values(
+                                                  ['rank', 'name'])
+
+    
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
                 rep_votes_metrics=None, rep_sponsor_metrics=None,
                 chamber=None, membership_stats_df=None, policy_area_df=None,
-                search_term=None, rep_grade=None, how=None):
+                search_term=None, rep_grade=None, how=None, current_stats=None,
+                table=None):
         self.congress_num = congress_num
         self.bioguide_id = bioguide_id
         self.days_voted = days_voted
@@ -2615,6 +2635,8 @@ class Performance(object):
         self.policy_area_df = policy_area_df
         self.rep_grade = rep_grade
         self.how = how
+        self.current_stats = current_stats
+        self.table = table
 
 class Senate_colleciton(object):
     """
