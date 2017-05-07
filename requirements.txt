@@ -17,6 +17,7 @@ pandas==0.17.0
 psycopg2==2.6.1
 pyzipcode==1.0
 scipy==0.18.1
+sqlalchemy==1.0.9
 text-unidecode==1.0
 tornado==4.2.1
 Unidecode==0.4.20

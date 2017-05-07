@@ -154,74 +154,32 @@ def committee_membership():
     else:
         return jsonify(results=False)
 
-## Put user vote in db
-@app.route("/user_vote", methods=["POST"])
-def user_vote():
-    vote_data = tally_toolkit.user_votes()
-    try:
-        data = json.loads(request.data.decode())
-        vote_data.user_id = data['user_id']
-        vote_data.roll_id = data['roll_id']
-        vote_data.vote = bool(data['vote'])
-    except:
-        vote_data.user_id = request.form['user_id']
-        vote_data.roll_id = request.form['roll_id']
-        vote_data.vote = bool(request.form['vote'])
-    tally_toolkit.user_votes.vote_to_db(vote_data)
-    return jsonify(results=vote_data.insert)
-
 ## Find number of days voted
 @app.route("/attendance", methods=["POST"])
 def attendance():
     rep_perfomance = tally_toolkit.Performance()
+    rep_perfomance.table = 'current_attendance'
+    rep_perfomance.how = 'bioguide_id'
     try:
         data = json.loads(request.data.decode())
         rep_perfomance.bioguide_id = data['bioguide_id']
-        # rep_perfomance.congress_num = data['congress']
-        chamber = data['chamber']
     except:
         rep_perfomance.bioguide_id = request.form['bioguide_id']
-        # rep_perfomance.congress_num = request.form['congress']
-        chamber = request.form['chamber']
+    try:
+        tally_toolkit.Performance.get_current_performance(rep_perfomance)
+        return jsonify(rep_perfomance.current_stats[['days_at_work', 
+            'percent_at_work', 
+            'total_work_days']].to_dict(orient='records')[0])
+    except:
+        return jsonify(results=False)
 
-    """
-    The dashboard should show the current congress. But
-    for future metrics this should be dynamic for the 
-    congress the user wants to search.
-    """
-    tally_toolkit.Performance.current_congress_num(rep_perfomance)
-
-    # if rep_perfomance.congress_num == 'current':
-    #     tally_toolkit.Performance.current_congress_num(rep_perfomance)
-    # else:
-    #     rep_perfomance.congress_num = int(rep_perfomance.congress_num)
-
-    if chamber.lower() == 'house':
-        # try:
-        ## Get attendance
-        tally_toolkit.Performance.num_days_voted_house(rep_perfomance)
-        rep_perfomance.days_voted = rep_perfomance.days_voted[['days_at_work', 'percent_at_work', 'total_work_days']]
-        return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
-        # except:
-        #     ## If returns no data
-        #     return jsonify(results=False)
-    elif chamber.lower() == 'senate':
-        try:
-            ## Get attendance
-            tally_toolkit.Performance.num_days_voted_senate(rep_perfomance)
-            rep_perfomance.days_voted = rep_perfomance.days_voted[[  'days_at_work', 'percent_at_work', 'total_work_days']]
-            return jsonify(rep_perfomance.days_voted.to_dict(orient='records')[0])
-        except:
-            ## If returns no data
-            return jsonify(results=False)
-    else:
-        return jsonify(results='check the chamber')
 
 ## Return all attendance
 @app.route("/rank_attendance", methods=["POST"])
 def rank_attendance():
     rep_perfomance = tally_toolkit.Performance()
-    tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    rep_perfomance.how = 'chamber'
+    rep_perfomance.table = 'current_attendance'
     try:
         data = json.loads(request.data.decode())
         rep_perfomance.chamber = data['chamber']
@@ -229,9 +187,9 @@ def rank_attendance():
         rep_perfomance.chamber = request.form['chamber']
 
     ## Get data
-    tally_toolkit.Performance.num_days_voted_all(rep_perfomance)
+    tally_toolkit.Performance.get_current_performance(rep_perfomance)
     try:
-        return jsonify(results=rep_perfomance.days_voted.to_dict(orient='records'))
+        return jsonify(results=rep_perfomance.current_stats.to_dict(orient='records'))
     except:
         ## If returns no data
         return jsonify(results=False)
@@ -241,50 +199,30 @@ def rank_attendance():
 @app.route("/participation", methods=["POST"])
 def participation():
     rep_perfomance = tally_toolkit.Performance()
+    rep_perfomance.how = 'bioguide_id'
+    rep_perfomance.table = 'current_participation'
     try:
         data = json.loads(request.data.decode())
         rep_perfomance.bioguide_id = data['bioguide_id']
-        rep_perfomance.congress_num = data['congress']
-        chamber = data['chamber']
     except:
         rep_perfomance.bioguide_id = request.form['bioguide_id']
-        rep_perfomance.congress_num = request.form['congress']
-        chamber = request.form['chamber']
 
-    """
-    The dashboard should show the current congress. But
-    for future metrics this should be dynamic for the 
-    congress the user wants to search.
-    """
-    if rep_perfomance.congress_num == 'current':
-        tally_toolkit.Performance.current_congress_num(rep_perfomance)
-    else:
-        rep_perfomance.congress_num = int(rep_perfomance.congress_num)
-
-    if chamber.lower() == 'house':
-        try:
-            ## Get participation
-            tally_toolkit.Performance.num_votes_house(rep_perfomance)
-            return jsonify(rep_perfomance.rep_votes_metrics.to_dict(orient='records')[0])
-        except:
-            ## If returns no data
-            return jsonify(results=False)
-    elif chamber.lower() == 'senate':
-        try:
-            ## Get participation
-            tally_toolkit.Performance.num_votes_senate(rep_perfomance)
-            return jsonify(rep_perfomance.rep_votes_metrics.to_dict(orient='records')[0])
-        except:
-            ## If returns no data
-            return jsonify(results=False)
-    else:
-        return jsonify(results='check the chamber')
+    try:
+        tally_toolkit.Performance.get_current_performance(rep_perfomance)
+        return jsonify(rep_perfomance.current_stats[['bioguide_id', 
+            'percent_votes', 
+            'rep_votes', 
+            'total_votes']].to_dict(orient='records')[0])
+    except:
+        ## If returns no data
+        return jsonify(results=False)
 
 ## Return all attendance
 @app.route("/rank_participation", methods=["POST"])
 def rank_participation():
     rep_perfomance = tally_toolkit.Performance()
-    tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    rep_perfomance.how = 'chamber'
+    rep_perfomance.table = 'current_participation'
     try:
         data = json.loads(request.data.decode())
         rep_perfomance.chamber = data['chamber']
@@ -292,59 +230,50 @@ def rank_participation():
         rep_perfomance.chamber = request.form['chamber']
 
     ## Get data
-    tally_toolkit.Performance.num_votes_all(rep_perfomance)
     try:
-        return jsonify(results=rep_perfomance.rep_votes_metrics.to_dict(orient='records'))
+        tally_toolkit.Performance.get_current_performance(rep_perfomance)
+        return jsonify(results=rep_perfomance.current_stats.to_dict(orient='records'))
     except:
         ## If returns no data
         return jsonify(results=False)
 
 
-## Find number of votes shes cast
+## Find number of bills she's made
 @app.route("/efficacy", methods=["POST"])
 def efficacy():
     rep_perfomance = tally_toolkit.Performance()
+    rep_perfomance.how = 'bioguide_id'
+    rep_perfomance.table = 'current_sponsor'
     try:
         data = json.loads(request.data.decode())
         rep_perfomance.bioguide_id = data['bioguide_id']
-        rep_perfomance.congress_num = data['congress']
     except:
         rep_perfomance.bioguide_id = request.form['bioguide_id']
-        rep_perfomance.congress_num = request.form['congress']
-
-    """
-    The dashboard should show the current congress. But
-    for future metrics this should be dynamic for the 
-    congress the user wants to search.
-    """
-    if rep_perfomance.congress_num == 'current':
-        tally_toolkit.Performance.current_congress_num(rep_perfomance)
-    else:
-        rep_perfomance.congress_num = int(rep_perfomance.congress_num)
 
     try:
-        ## Get efficacy
-        tally_toolkit.Performance.num_sponsor(rep_perfomance)
-        return jsonify(rep_perfomance.rep_sponsor_metrics.to_dict(orient='records')[0])
+        tally_toolkit.Performance.get_current_performance(rep_perfomance)
+        return jsonify(rep_perfomance.current_stats[['bioguide_id', 
+            'max_sponsor', 
+            'rep_sponsor', 
+            'sponsor_percent']].to_dict(orient='records')[0])
     except:
-        ## If returns no data
         return jsonify(results=False)
 
 ## Return all attendance
 @app.route("/rank_efficacy", methods=["POST"])
 def rank_efficacy():
     rep_perfomance = tally_toolkit.Performance()
-    tally_toolkit.Performance.current_congress_num(rep_perfomance)
+    rep_perfomance.how = 'chamber'
+    rep_perfomance.table = 'current_sponsor'
     try:
         data = json.loads(request.data.decode())
         rep_perfomance.chamber = data['chamber']
     except:
         rep_perfomance.chamber = request.form['chamber']
 
-    ## Get data
-    tally_toolkit.Performance.num_sponsored_all(rep_perfomance)
     try:
-        return jsonify(results=rep_perfomance.rep_sponsor_metrics.to_dict(orient='records'))
+        tally_toolkit.Performance.get_current_performance(rep_perfomance)
+        return jsonify(results=rep_perfomance.current_stats.to_dict(orient='records'))
     except:
         ## If returns no data
         return jsonify(results=False)
