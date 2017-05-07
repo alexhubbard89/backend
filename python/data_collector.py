@@ -3,12 +3,12 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import imp
-# collect_current_congress = imp.load_source('module', './python/collect_current_congress.py')
-# tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
+collect_current_congress = imp.load_source('module', './python/collect_current_congress.py')
+tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
 
-# # For testing
-collect_current_congress = imp.load_source('module', 'collect_current_congress.py')
-tally_toolkit = imp.load_source('module', 'tally_toolkit.py')
+# # # For testing
+# collect_current_congress = imp.load_source('module', 'collect_current_congress.py')
+# tally_toolkit = imp.load_source('module', 'tally_toolkit.py')
 
 fromaddr = 'tallyscraper@gmail.com'
 toaddrs = 'alexhubbard89@gmail.com'

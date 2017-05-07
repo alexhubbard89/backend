@@ -1906,7 +1906,8 @@ class Performance(object):
                         """.format(self.congress_num,
                                    self.bioguide_id), open_connection())
             if min_date.loc[0, 'min'] > total_days.loc[5, 'total_work_days']:                
-                days_voted = pd.DataFrame(data=len(days_voted), columns=['total_work_days'])
+                days_voted = pd.DataFrame()
+                days_voted.loc[0, 'days_at_work'] = len(days_voted)
                 days_voted.loc[:, 'total_work_days'] = len(total_days.loc[total_days['total_work_days'] >= min_date.loc[0, 'min']])
                 days_voted['percent_at_work'] = (days_voted['days_at_work']/
                                                  days_voted['total_work_days'])
@@ -3522,26 +3523,65 @@ class Search(object):
         self.text = text
 
 class Grade_reps(object):
-
-    def rank_attend(self):
+    def get_participation_for_grade(self):
         days_voted = pd.read_sql_query("""
+        SELECT * FROM (
         SELECT distinct_votes.bioguide_id, 
-        count(distinct_votes.bioguide_id) as days_at_work
+        COUNT(distinct_votes.bioguide_id) AS days_at_work
         FROM (
         SELECT DISTINCT bioguide_id, date
         FROM house_votes_tbl
         where congress = {}
         AND vote != 'Not Voting')
-        as distinct_votes
-        GROUP BY bioguide_id;
+        AS distinct_votes
+        GROUP BY bioguide_id)
+        AS work_stats
+        WHERE bioguide_id is not null;
         """.format(self.congress), open_connection())
-
+        
         vote_dates = pd.read_sql_query("""
         SELECT COUNT(DISTINCT(date)) as total_work_days 
         FROM house_votes_tbl 
         WHERE congress = {};
         """.format(self.congress),open_connection())
+        
+        rep_votes = pd.read_sql_query("""
+            SELECT bioguide_id,
+            COUNT(bioguide_id) as rep_votes
+            FROM house_votes_tbl
+            where congress = {}
+            AND vote != 'Not Voting'
+            GROUP BY bioguide_id
+            ;
+            """.format(self.congress), open_connection())
 
+        total_votes = pd.read_sql_query("""
+            SELECT COUNT(DISTINCT(roll_id)) total_votes
+            FROM house_votes_tbl
+            WHERE congress = {};
+            """.format(self.congress), open_connection())
+        
+        days_voted.loc[days_voted['days_at_work'].isnull(), 'days_at_work'] = 0
+        days_voted.loc[:, 'total_work_days'] = vote_dates.loc[0, 'total_work_days']
+        days_voted = days_voted.loc[((days_voted['bioguide_id'].notnull()) &
+                       (days_voted['bioguide_id'] != '0'))].reset_index(drop=True)
+        
+        rep_votes.loc[rep_votes['rep_votes'].isnull(), 'rep_votes'] = 0
+        rep_votes.loc[:, 'total_votes'] = total_votes.loc[0, 'total_votes']
+        rep_votes = rep_votes.loc[((rep_votes['bioguide_id'].notnull()) &
+                       (rep_votes['bioguide_id'] != '0'))].reset_index(drop=True)
+        
+        days_voted.loc[:, 'rep_votes'] = rep_votes.loc[:, 'rep_votes']
+        days_voted.loc[:, 'total_votes'] = rep_votes.loc[:, 'total_votes']
+
+        ## Make final stats
+        days_voted['new_participation'] = days_voted['rep_votes'] - days_voted['days_at_work']
+        days_voted['new_total'] = days_voted['total_votes'] - days_voted['total_work_days']
+        days_voted.loc[:, 'participation_percent'] = days_voted['new_participation']/days_voted['new_total']
+        
+        days_voted.loc[:, 'chamber'] = 'house'
+        
+        ## Now for senate
         days_voted_s = pd.read_sql_query("""
                     SELECT distinct_votes.last_name,
                     distinct_votes.state,
@@ -3592,40 +3632,13 @@ class Grade_reps(object):
 
         find_senator.loc[:, 'last_name'] = find_senator.loc[:, 'name'].apply(lambda x: x.split(',')[0])
         days_voted_s = pd.merge(days_voted_s, find_senator, how='left', on=['state', 'last_name']).drop_duplicates(['bioguide_id'])
-
-        days_voted.loc[days_voted['days_at_work'].isnull(), 'days_at_work'] = 0
-        days_voted.loc[:, 'total_work_days'] = vote_dates.loc[0, 'total_work_days']
-        days_voted.loc[:, 'percent_at_work'] = (days_voted['days_at_work']/
-                                         days_voted['total_work_days'])
-        days_voted.loc[:, 'chamber'] = 'house'
-
+        
         days_voted_s.loc[days_voted_s['days_at_work'].isnull(), 'days_at_work'] = 0
         days_voted_s.loc[:, 'total_work_days'] = vote_dates_s.loc[0, 'total_work_days']
         days_voted_s.loc[:, 'percent_at_work'] = (days_voted_s['days_at_work']/
                                          days_voted_s['total_work_days'])
-        days_voted_s.loc[:, 'chamber'] = 'senate'
-
-        return days_voted.append(days_voted_s).reset_index(drop=True)[['bioguide_id', 'days_at_work', 
-                                                                     'total_work_days', 'percent_at_work', 'chamber']]
-
-    def rank_voting(self):
-        rep_votes = pd.read_sql_query("""
-            SELECT bioguide_id,
-            COUNT(bioguide_id) as rep_votes
-            FROM house_votes_tbl
-            where congress = {}
-            AND vote != 'Not Voting'
-            GROUP BY bioguide_id
-            ;
-            """.format(self.congress), open_connection())
-
-        total_votes = pd.read_sql_query("""
-            SELECT COUNT(DISTINCT(roll_id)) total_votes
-            FROM house_votes_tbl
-            WHERE congress = {};
-            """.format(self.congress), open_connection())
-
-
+        
+        
         rep_votes_s = pd.read_sql_query("""
                     SELECT distinct_votes.last_name,
                     distinct_votes.state,
@@ -3648,49 +3661,24 @@ class Grade_reps(object):
                 self.congress), open_connection())
 
         ## Find senators that voted during this time
-        date_range = pd.read_sql_query("""
-        SELECT min(date) AS min_date,
-        max(date) AS max_date
-        FROM senator_votes_tbl
-        WHERE congress = {}
-        """.format(self.congress), open_connection())
-        date_range.loc[0, 'min_date'] = date_range.loc[0, 'min_date'].year
-        date_range.loc[0, 'max_date'] = date_range.loc[0, 'max_date'].year
-
-        all_senate = pd.read_sql("""
-        SELECT DISTINCT name,
-        bioguide_id,
-        state, district,
-        party,
-        photo_url, 
-        year_elected, 
-        served_until
-        FROM congress_bio 
-        WHERE chamber = 'senate';""", open_connection())
-        all_senate.loc[all_senate['served_until'] == 'Present', 'served_until'] = datetime.datetime.today().year
-        all_senate['year_elected'] = all_senate['year_elected'].astype(int)
-        all_senate['served_until'] = all_senate['served_until'].astype(int)
-
-        find_senator = all_senate.loc[((all_senate['year_elected'] <= date_range.loc[0, 'max_date']) &
-                       (all_senate['served_until'] >= date_range.loc[0, 'min_date']))]
-
         find_senator.loc[:, 'last_name'] = find_senator.loc[:, 'name'].apply(lambda x: x.split(',')[0])
         rep_votes_s = pd.merge(rep_votes_s, find_senator, how='left', on=['state', 'last_name']).drop_duplicates(['bioguide_id'])
 
-
-        ## Get percent
-        rep_votes.loc[rep_votes['rep_votes'].isnull(), 'rep_votes'] = 0
-        rep_votes.loc[:, 'total_votes'] = total_votes.loc[0, 'total_votes']
-        rep_votes.loc[:, 'percent_votes'] = (rep_votes['rep_votes']/
-                                              rep_votes['total_votes'])
 
         rep_votes_s.loc[rep_votes_s['rep_votes'].isnull(), 'rep_votes'] = 0
         rep_votes_s.loc[:, 'total_votes'] = total_votes_s.loc[0, 'total_votes']
         rep_votes_s.loc[:, 'percent_votes'] = (rep_votes_s['rep_votes']/
                                               rep_votes_s['total_votes'])
-
-        return rep_votes.append(rep_votes_s).reset_index(drop=True)[['bioguide_id', 'rep_votes', 
-                                                                     'total_votes', 'percent_votes']]
+        
+        ## Make final stats
+        days_voted_s['new_participation'] = rep_votes_s['rep_votes'] - days_voted_s['days_at_work']
+        days_voted_s['new_total'] = rep_votes_s['total_votes'] - days_voted_s['total_work_days']
+        days_voted_s.loc[:, 'participation_percent'] = days_voted_s['new_participation']/days_voted_s['new_total']
+        days_voted_s.loc[:, 'chamber'] = 'senate'
+        
+        
+        return days_voted.append(days_voted_s)[['bioguide_id', 'chamber', 'participation_percent']].reset_index(drop=True)
+        
     def rank_bills_made(self):
         all_sponsored = pd.read_sql_query("""
             SELECT * FROM
@@ -3878,8 +3866,7 @@ class Grade_reps(object):
         
     def total_grade_calc(self): 
         ## Collect stats
-        attend = Grade_reps.rank_attend(self)
-        voting = Grade_reps.rank_voting(self)
+        voting = Grade_reps.get_participation_for_grade(self)
         sponsor = Grade_reps.rank_bills_made(self)
         became_law_df = Grade_reps.became_law(self)
         Grade_reps.get_leadership(self)
@@ -3888,9 +3875,7 @@ class Grade_reps(object):
             Grade_reps.committee_leadership(self)
 
         ## Join data
-        total_grades = pd.merge(pd.merge(attend[['bioguide_id', 'chamber', 'percent_at_work']], voting[['bioguide_id', 'percent_votes']],
-                 how='left', on='bioguide_id'),
-                 sponsor[['bioguide_id', 'sponsor_percent']],
+        total_grades = pd.merge(voting, sponsor[['bioguide_id', 'sponsor_percent']],
                  how='left', on='bioguide_id').drop_duplicates('bioguide_id')
         total_grades = pd.merge(total_grades, became_law_df, how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
         total_grades = pd.merge(total_grades, self.leadership_df[['bioguide_id', 'position']],
@@ -3904,13 +3889,11 @@ class Grade_reps(object):
             
         ## Make total grade - No extra credit
         if self.congress == 115:
-            total_grades['total_grade'] = ((total_grades['percent_at_work'] + 
-                                           total_grades['percent_votes'] + 
+            total_grades['total_grade'] = (((total_grades['participation_percent']*2) + 
                                            total_grades['sponsor_percent'] +
                                           total_grades['memberhip_percent'])/3)
         else:
-            total_grades['total_grade'] = ((total_grades['percent_at_work'] + 
-                                           total_grades['percent_votes'] + 
+            total_grades['total_grade'] = (((total_grades['participation_percent']*2) +
                                            total_grades['sponsor_percent'])/2.5)
 
         ## Extra Credit: Became Law
@@ -3962,6 +3945,8 @@ class Grade_reps(object):
         total_grades.loc[((total_grades['position'] == 'Speaker of the House')),
                         ['total_grade', 'total_grade_extra_credit',
                         'letter_grade', 'letter_grade_extra_credit']] = None
+        
+        total_grades.loc[:, 'congress'] = self.congress
 
         self.congress_grades = total_grades.sort_values(['total_grade'],ascending=False).reset_index(drop=True)
         
@@ -3978,8 +3963,7 @@ class Grade_reps(object):
                                                     'letter_grade',
                                                     'letter_grade_extra_credit',
                                                     'memberhip_percent',
-                                                    'percent_at_work',
-                                                    'percent_votes',
+                                                    'participation_percent',
                                                     'sponsor_percent',
                                                     'total_grade',
                                                     'total_grade_extra_credit',
@@ -3999,22 +3983,21 @@ class Grade_reps(object):
                 letter_grade,
                 letter_grade_extra_credit,
                 memberhip_percent,
-                percent_at_work,
-                percent_votes,
+                participation_percent,
                 sponsor_percent,
                 total_grade,
                 total_grade_extra_credit,
                 tracker)
                 VALUES ('{bioguide_id}', '{chamber}', '{congress}', '{leadership}',
                  '{leadership_position}', '{letter_grade}', '{letter_grade_extra_credit}', '{memberhip_percent}', 
-                 '{percent_at_work}', '{percent_votes}', '{sponsor_percent}', '{total_grade}', 
+                 '{participation_percent}', '{sponsor_percent}', '{total_grade}', 
                  '{total_grade_extra_credit}', '{tracker}');"""
 
 
                 sql_command = format_str.format(bioguide_id=p[0], chamber=p[1], congress=int(p[2]), leadership=int(p[3]),
                  leadership_position=p[4], letter_grade=p[5], letter_grade_extra_credit=p[6], memberhip_percent=p[7], 
-                 percent_at_work=p[8], percent_votes=p[9], sponsor_percent=p[10], total_grade=p[11], 
-                total_grade_extra_credit=p[12], tracker=int(p[13]))
+                 participation_percent=p[8], sponsor_percent=p[9], total_grade=p[10], 
+                total_grade_extra_credit=p[11], tracker=int(p[12]))
 
 
                 try:
@@ -4032,8 +4015,7 @@ class Grade_reps(object):
                     letter_grade='{}', 
                     letter_grade_extra_credit='{}', 
                     memberhip_percent='{}', 
-                    percent_at_work='{}', 
-                    percent_votes='{}', 
+                    participation_percent='{}',  
                     sponsor_percent='{}',
                     total_grade='{}', 
                     total_grade_extra_credit='{}', 
@@ -4045,8 +4027,7 @@ class Grade_reps(object):
                     self.congress_grades.loc[i, 'letter_grade'],
                     self.congress_grades.loc[i, 'letter_grade_extra_credit'],
                     self.congress_grades.loc[i, 'memberhip_percent'],
-                    self.congress_grades.loc[i, 'percent_at_work'],
-                    self.congress_grades.loc[i, 'percent_votes'],
+                    self.congress_grades.loc[i, 'participation_percent'],
                     self.congress_grades.loc[i, 'sponsor_percent'],
                     self.congress_grades.loc[i, 'total_grade'],
                     self.congress_grades.loc[i, 'total_grade_extra_credit'],
