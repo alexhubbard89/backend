@@ -28,6 +28,7 @@ from collections import Counter
 from StringIO import StringIO
 import urllib2
 from zipfile import ZipFile
+import calendar
 
 urlparse.uses_netloc.append("postgres")
 url = urlparse.urlparse(os.environ["DATABASE_URL"])
@@ -1458,15 +1459,7 @@ class sponsorship_collection(object):
             sponsors_df.loc[0, 'cosponsor_bioguide_id'] = None
             sponsors_df.loc[0, 'cosponsor_member_full'] = None
             sponsors_df.loc[0, 'date_cosponsored'] = None
-        # except:
-        #     """There was no sponsor. 
-        #     Rare but not impossible."""
-        #     sponsor = None
-        #     sponsors_df = pd.DataFrame([self.search_url, sponsor]).transpose()
-        #     sponsors_df.columns = ['url', 'bioguide_id']
-        #     sponsors_df.loc[0, 'cosponsor_bioguide_id'] = None
-        #     sponsors_df.loc[0, 'cosponsor_member_full'] = None
-        #     sponsors_df.loc[0, 'date_cosponsored'] = None
+
 
         return sponsors_df
     
@@ -3535,14 +3528,35 @@ class Search(object):
         self.df = self.df.sort_values(['sim'], ascending=False).reset_index(drop=True).drop(['sim'],1)
     
     
+    def add_rank(self):
+        if self.category == 'attendance':
+            table = 'current_attendance'
+        elif self.category == 'participation':
+            table = 'current_participation'
+        elif self.category == 'efficacy':
+            table = 'current_sponsor'
+        rank_df = pd.read_sql_query("""
+                  SELECT * FROM {}
+                  WHERE chamber = '{}'
+                  ;""".format(table,
+                              self.chamber), open_connection())
+        
+        return pd.merge(self.df[['bioguide_id']], 
+                        rank_df, 
+                        how='inner', 
+                        on='bioguide_id').drop_duplicates(['bioguide_id'])
+    
+    
     def __init__(self, search_term=None, zip_code=None, df=None, vec1=None, vec2=None,
-        text=None):
+        text=None, category=None, chamber=None):
         self.search_term = search_term
         self.zip_code = zip_code
         self.df = df
         self.vec1 = vec1
         self.vec2 = vec2
         self.text = text
+        self.category = category
+        self.chamber = chamber
 
 class Grade_reps(object):
     def get_participation_for_grade(self):
