@@ -376,17 +376,43 @@ def search():
     try:
         data = json.loads(request.data.decode())
         user_search.search_term = data['search_term']
+        try:
+            ## If it's a search for rank it includes these
+            user_search.category = data['category']
+            user_search.chamber = data['chamber']
+            for_rank = True
+        except:
+            ## If not then null them
+            user_search.category = None
+            user_search.chamber = None
+            for_rank = False
     except:
         user_search.search_term = request.form['search_term']
-    # try:
+        try:
+            user_search.category = request.form['category']
+            user_search.chamber = request.form['chamber']
+            for_rank = True
+        except:
+            user_search.category = None
+            user_search.chamber = None
+            for_rank = False
 
-    user_search.df = tally_toolkit.Search.search(user_search)
-    tally_toolkit.Search.add_sim(user_search)
-
-    return jsonify(results=user_search.df.drop_duplicates(['bioguide_id']).drop(['b_id'],1).to_dict(orient='records'))
-    # except:
-    #     ## If returns no data
-    #     return jsonify(results=[])
+    if for_rank == False:
+        try:
+            user_search.df = tally_toolkit.Search.search(user_search)
+            tally_toolkit.Search.add_sim(user_search)
+            return jsonify(results=user_search.df.drop_duplicates(['bioguide_id']).drop(['b_id'],1).to_dict(orient='records'))
+        except:
+            ## If returns no data
+            return jsonify(results=[])
+    elif for_rank == True:
+        try:
+            user_search.df = tally_toolkit.Search.search(user_search)
+            user_search.df = tally_toolkit.Search.add_rank(user_search)
+            return jsonify(results=user_search.df.to_dict(orient='records'))
+        except:
+            ## If returns no data
+            return jsonify(results=[])
 
 ## Get a reps grade
 @app.route("/rep_grade", methods=["POST"])
