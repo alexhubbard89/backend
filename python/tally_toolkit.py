@@ -29,6 +29,11 @@ from StringIO import StringIO
 import urllib2
 from zipfile import ZipFile
 import calendar
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.converter import TextConverter
+from pdfminer.layout import LAParams
+from pdfminer.pdfpage import PDFPage
+from cStringIO import StringIO
 
 urlparse.uses_netloc.append("postgres")
 url = urlparse.urlparse(os.environ["DATABASE_URL"])
@@ -5090,3 +5095,116 @@ class Campaign_contributions(object):
         self.df = df
         self.db_tbl = db_tbl
         self.unique_id = unique_id
+
+class Congressional_report_collector(object):
+    def collect_record_link(self):
+        url = "https://www.congress.gov/congressional-record/{}/{}/{}/{}-section".format("{}".format(self.year).zfill(4),
+                                                                     "{}".format(self.month).zfill(2), 
+                                                                     "{}".format(self.day).zfill(2),
+                                                                    self.chamber)
+        r = requests.get(url)
+        if r.status_code == 200:
+            page = BeautifulSoup(r.content, 'lxml')
+            page_target = page.find('div', class_='tntFormWrapper')
+            pdf = []
+            for a in page_target.findAll('a'):
+                pdf.append("https://www.congress.gov" + a.get('href'))
+            if len(pdf) > 0:
+                return pdf
+            
+    def to_sql(self):
+        connection = open_connection()
+        cursor = connection.cursor()
+
+        sql_command = """
+        INSERT INTO {} (
+        date,
+        links,
+        pdf_str)
+        VALUES ('{}', '{}', '{}');""".format(self.table,
+            self.df.loc[0, 'date'], 
+            sanitize(self.df.loc[0, 'links']), 
+            self.df.loc[0, 'pdf_str'])
+
+        # try:
+        # Try to insert, if it can't inset then it should update
+        cursor.execute(sql_command)
+        connection.commit()
+        # except:
+        #     connection.rollback()
+        #     ## If the update breaks then something is wrong
+        #     sql_command = """UPDATE {} 
+        #     SET  
+        #     links='{}', 
+        #     pdf_str='{}'
+        #     where (date = '{}');""".format(
+        #         self.table,
+        #         sanitize(self.df.loc[0, 'links']),
+        #         self.df.loc[0, 'pdf_str'],
+        #         self.df.loc[0, 'date'])
+
+        #     cursor.execute(sql_command)
+        #     connection.commit()
+            
+    def pdf_from_url_to_txt(self):
+        rsrcmgr = PDFResourceManager()
+        retstr = StringIO()
+        codec = 'utf-8'
+        laparams = LAParams()
+        device = TextConverter(rsrcmgr, retstr, codec=codec, laparams=laparams)
+        ## Open the url provided as an argument to the function and read the content
+        r = requests.get(self.url)
+        f = r.content
+        ## Cast to StringIO object
+        fp = StringIO(f)
+        interpreter = PDFPageInterpreter(rsrcmgr, device)
+        password = ""
+        maxpages = 0
+        caching = True
+        pagenos = set()
+        for page in PDFPage.get_pages(fp,
+                                      pagenos,
+                                      maxpages=maxpages,
+                                      password=password,
+                                      caching=caching,
+                                      check_extractable=True):
+            interpreter.process_page(page)
+        fp.close()
+        device.close()
+        str = retstr.getvalue()
+        retstr.close()
+        return str
+            
+    def collect_and_house(self):
+        ## Collect urls
+        x = Congressional_report_collector.collect_record_link(self)
+        ## Save links associated to date
+        links_df = pd.DataFrame()
+        links_df.loc[0, 'date'] = "{}".format(self.year).zfill(4) + "-{}-".format(self.month).zfill(2) + "{}".format(self.day).zfill(2)
+        links_df.loc[0, 'links'] = None
+        links_df['links'] = links_df['links'].astype(object)
+        try:
+            ## Save links
+            links_df.set_value(0, 'links', list(x))
+            ## Search through all links and save text to var
+            pdf_str = ''
+            for link in links_df.loc[0, 'links']:
+                print link
+                self.url = link
+                pdf_str += Congressional_report_collector.pdf_from_url_to_txt(self)
+            ## Sanitize the text and save
+            links_df.loc[0, 'pdf_str'] = sanitize(unidecode(pdf_str.decode('utf-8').strip()))
+        except:
+            ## If no links found fuck it
+            links_df.loc[0, 'links'] = None
+            links_df.loc[0, 'pdf_str'] = None
+        
+        self.df = links_df
+            
+    def __init__(self, year=None, month=None, day=None, chamber=None, df=None, table=None):
+        self.year = year
+        self.month = month
+        self.day = day
+        self.chamber = chamber
+        self.df = df
+        self.table = table

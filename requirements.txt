@@ -14,6 +14,7 @@ numpy==1.12.0
 requests==2.13.0
 requests-oauthlib==0.6.0
 pandas==0.17.0
+pdfminer==20140328
 psycopg2==2.6.1
 pyzipcode==1.0
 scipy==0.18.1
