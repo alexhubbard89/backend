@@ -5126,25 +5126,25 @@ class Congressional_report_collector(object):
             sanitize(self.df.loc[0, 'links']), 
             self.df.loc[0, 'pdf_str'])
 
-        # try:
-        # Try to insert, if it can't inset then it should update
-        cursor.execute(sql_command)
-        connection.commit()
-        # except:
-        #     connection.rollback()
-        #     ## If the update breaks then something is wrong
-        #     sql_command = """UPDATE {} 
-        #     SET  
-        #     links='{}', 
-        #     pdf_str='{}'
-        #     where (date = '{}');""".format(
-        #         self.table,
-        #         sanitize(self.df.loc[0, 'links']),
-        #         self.df.loc[0, 'pdf_str'],
-        #         self.df.loc[0, 'date'])
+        try:
+            # Try to insert, if it can't inset then it should update
+            cursor.execute(sql_command)
+            connection.commit()
+        except:
+            connection.rollback()
+            ## If the update breaks then something is wrong
+            sql_command = """UPDATE {} 
+            SET  
+            links='{}', 
+            pdf_str='{}'
+            where (date = '{}');""".format(
+                self.table,
+                sanitize(self.df.loc[0, 'links']),
+                self.df.loc[0, 'pdf_str'],
+                self.df.loc[0, 'date'])
 
-        #     cursor.execute(sql_command)
-        #     connection.commit()
+            cursor.execute(sql_command)
+            connection.commit()
             
     def pdf_from_url_to_txt(self):
         rsrcmgr = PDFResourceManager()
