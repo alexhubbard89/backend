@@ -5200,6 +5200,36 @@ class Congressional_report_collector(object):
             links_df.loc[0, 'pdf_str'] = None
         
         self.df = links_df
+
+    def collect_missing_reports(self):
+        max_date = pd.read_sql_query("""
+        SELECT max(date) FROM {}
+        ;
+        """.format(self.table), open_connection())
+        max_date = max_date.loc[0, 'max']
+        
+        year = max_date.year
+        self.year = year
+        month = max_date.month
+        today = str(datetime.datetime.today()).split(' ')[0]
+        
+        for i in range(month, 13):
+            if i == month:
+                min_day = max_date.day
+            else:
+                min_day = 1
+            max_day = calendar.monthrange(year,i)[1]
+            for j in range(min_day, max_day):
+                search_date = '{}-{}-{}'.format(year, '{}'.format(i).zfill(2), '{}'.format(j).zfill(2))
+                
+                if search_date == today:
+                    return
+                print search_date
+                
+                self.month = i
+                self.day = j
+                Congressional_report_collector.collect_and_house(self)
+                Congressional_report_collector.to_sql(self)
             
     def __init__(self, year=None, month=None, day=None, chamber=None, df=None, table=None):
         self.year = year
