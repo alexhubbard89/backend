@@ -250,6 +250,27 @@ try:
 except:
     bad_collection += """\n\tMost Recent Performance Stats"""
 
+print "daily report collection"
+try:
+    print "for house"
+    daily_collection = tally_toolkit.Congressional_report_collector()
+    daily_collection.chamber = "house"
+    daily_collection.table = "congressional_record_house"
+    tally_toolkit.Congressional_report_collector.collect_missing_reports(daily_collection)
+    good_collection += """\n\tCongressional reports House"""
+except:
+    bad_collection += """\n\tCongressional reports House"""
+
+try:
+    print "for senate"
+    daily_collection = tally_toolkit.Congressional_report_collector()
+    daily_collection.chamber = "senate"
+    daily_collection.table = "congressional_record_senate"
+    tally_toolkit.Congressional_report_collector.collect_missing_reports(daily_collection)
+    good_collection += """\n\tCongressional reports Senate"""
+except:
+    bad_collection += """\n\tCongressional reports Senate"""
+
 
 
 msg['Subject'] = "Data Collection Report"
