@@ -3078,7 +3078,7 @@ class Search(object):
         #### Is number a zipcode
         try:
             ## remove word zipcode and strip empty space
-            search_term_zip = search_term.replace('zip', '').replace('code', '').strip(' ')
+            search_term_zip = search_term.strip(' ').replace('zip', '').replace('code', '')
 
             ## length of term == 5
             if len(search_term_zip) == 5:
@@ -3095,7 +3095,7 @@ class Search(object):
             "move on"
             
         try:
-            search_term_dist = search_term.replace('district', '')
+            search_term_dist = search_term.strip(' ').replace('district', '')
             num = []
             [num.append(int(s)) for s in search_term_dist.split() if s.isdigit()]
             if len(num) > 0:
@@ -3110,7 +3110,7 @@ class Search(object):
                     except:
                         'dont change it'
                         
-                    x = search_term_dist.split(' ')
+                    x = search_term_dist.strip(' ').split(' ')
                     search_term_query = ''
                     for i in range(len(x)):
                         search_term_query += """AND (lower(name) ilike '%' || '{}' || '%'
@@ -3266,7 +3266,7 @@ class Search(object):
                 if len(df) > 0:
                     return df
                 else:
-                    x = search_term.split(' ')
+                    x = search_term.strip(' ').split(' ')
                     search_term_query = ''
                     for i in range(len(x)):
                         search_term_query += """OR (lower(name) ilike '%' || '{}' || '%'
@@ -3324,7 +3324,7 @@ class Search(object):
             except:
                 'dont change it'
             
-            x = search_term.split(' ')
+            x = search_term.strip(' ').split(' ')
             search_term_query = ''
             for i in range(len(x)):
                 search_term_query += """OR (lower(name) ilike '%' || '{}' || '%'
