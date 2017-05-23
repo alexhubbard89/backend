@@ -38,13 +38,14 @@ for i in df.index:
             if len(clean_df) > 0:
                 master_df = master_df.append(clean_df).reset_index(drop=True)
 
-        ## Add column for date and drop speaker trigger
-        master_df.loc[:, 'date'] = df.loc[i, 'date']
-        master_df = master_df.drop(['speaker_trigger'], 1)
-        master_df.loc[:, 'chamber'] = 'house'
-        
-        speaking_house.df = master_df
-        tally_toolkit.Congressional_report_collector.transcript_to_sql(speaking_house)
+        if len(master_df) > 0:
+            ## Add column for date and drop speaker trigger
+            master_df.loc[:, 'date'] = df.loc[i, 'date']
+            master_df = master_df.drop(['speaker_trigger'], 1)
+            master_df.loc[:, 'chamber'] = 'house'
+            
+            speaking_house.df = master_df
+            tally_toolkit.Congressional_report_collector.transcript_to_sql(speaking_house)
     else:
         print 'not: {}'.format(i)
         
