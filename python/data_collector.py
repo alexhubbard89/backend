@@ -271,6 +271,22 @@ try:
 except:
     bad_collection += """\n\tCongressional reports Senate"""
 
+print "clean the transcripts"
+transcript_cleaning = tally_toolkit.Congressional_report_collector()
+try:
+    print 'house'
+    tally_toolkit.Congressional_report_collector.clean_transcripts(transcript_cleaning, 'house')
+    good_collection += """\n\tCongressional reports cleaning House"""
+except:
+    bad_collection += """\n\tCongressional reports cleaning House"""
+
+try:
+    print 'senate'
+    tally_toolkit.Congressional_report_collector.clean_transcripts(transcript_cleaning, 'senate')
+    good_collection += """\n\tCongressional reports cleaning Senate"""
+except:
+    bad_collection += """\n\tCongressional reports cleaning Senate"""
+
 
 
 msg['Subject'] = "Data Collection Report"
