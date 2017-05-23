@@ -5441,6 +5441,41 @@ class Congressional_report_collector(object):
                 connection.rollback()
                 print 'not work: {}'.format(i)
         connection.close()
+
+    def clean_transcripts(self, chamber):
+        transcript_max = pd.read_sql_query("""
+        SELECT max(date) FROM congressional_record_transcripts
+        WHERE chamber = '{}';
+        """.format(chamber), open_connection())
+        
+        df = pd.read_sql_query("""
+        SELECT * FROM congressional_record_{}
+        WHERE date > '{}'
+        ;""".format(chamber, transcript_max.loc[0, 'max']), open_connection())
+        
+        for i in df.index:
+            if df.loc[i, 'pdf_str'] != 'nan':
+                print 'has: {}'.format(i)
+                by_section = df.loc[i, 'pdf_str'][28:].split(' \n\nf ')
+                master_df = pd.DataFrame()
+
+                for section in by_section:
+                    self.text = section
+                    tally_toolkit.Congressional_report_collector.get_sub_clean_text(self)
+                    clean_df = tally_toolkit.Congressional_report_collector.whatd_they_say(self, chamber)
+                    if len(clean_df) > 0:
+                        master_df = master_df.append(clean_df).reset_index(drop=True)
+
+                if len(master_df) > 0:
+                    ## Add column for date and drop speaker trigger
+                    master_df.loc[:, 'date'] = df.loc[i, 'date']
+                    master_df = master_df.drop(['speaker_trigger'], 1)
+                    master_df.loc[:, 'chamber'] = chamber
+
+                    self.df = master_df
+                    tally_toolkit.Congressional_report_collector.transcript_to_sql(self)
+            else:
+                'not: {}'.format(i)
                 
             
     def __init__(self, year=None, month=None, day=None, chamber=None, df=None, table=None):
