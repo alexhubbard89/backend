@@ -5230,6 +5230,208 @@ class Congressional_report_collector(object):
                 self.day = j
                 Congressional_report_collector.collect_and_house(self)
                 Congressional_report_collector.to_sql(self)
+
+                
+    ########################################
+    #### The following methods are used ####
+    #### to find which reps spoke (with ####
+    #### bioguide id link) what they and ###
+    #### spoke about.                   ####
+    ########################################
+    
+    def get_sub_clean_text(self):
+        """
+        Input:
+        Block of text form a section of the 
+        congressional report. The required
+        block of text is the text found between
+        sections.
+
+        Outputs:
+        None
+
+        Attributes:
+        Section Title - The extracted title from
+        the block of text
+        Body Text - Original input text stripped
+        of the section title and other special
+        stop words.
+        """
+
+        mystr = ' '.join(self.text.replace('-\n','').replace("''", '"').split())
+        mystr = mystr.replace("\'", "'")
+        mystr = mystr.replace("E S U O H h t i w D O R P 1 N V T P T 7 K S D n o k c i r e d e r f r", "")
+        mystr = mystr.replace("E S U O H h t i w D O R P 1 N V T P T 7 K S D n o", "")
+        mystr = mystr.replace("k c i r e d e r f r", "")
+
+
+        mystr = mystr.replace("E T A N E S h t i w D O R P 1 N V T P V 5 K S D n o r e t t o l", "")
+        mystr = mystr.replace("E T A N E S h t i w D O R P 1 N V T P V 5 K S D n o", "")
+        mystr = mystr.replace("r e t t o l", "")
+
+        mystr = mystr.replace("E T A N E S h t i [?]", "")
+        mystr = mystr.replace("w D O R P 1 N V T P V 5 K S D n o", "")
+        mystr = mystr.replace("[?]", "")
+
+        mystr = re.sub("b \d+ AFTER RECESS", "AFTER RECESS", mystr)
+        wordList = re.sub(" ", " ",  mystr).split()
+        count = 0
+        add_more = True
+        section_title = ''
+
+        while add_more == True:
+            if ((wordList[count].isupper() == True) | (wordList[count].isdigit() == True)):
+                section_title += wordList[count]
+                count +=1 
+            elif (wordList[count][-1] in string.punctuation) & ((wordList[count][:-1].isupper() == True) | (wordList[count][:-1].isdigit() == True)):
+                section_title += wordList[count]
+                count +=1 
+            else:
+                add_more = False
+            section_title += ' '
+
+        self.section_title = section_title.strip(' ')
+        mystr = mystr.replace(section_title.strip(' ') + ' ', "")
+        mystr = mystr.replace("GENERAL LEAVE ", "")
+        self.section = mystr
+        
+    def whatd_they_say(self, chamber):
+        ## Import peeps
+        all_reps = pd.read_sql_query("""
+        SELECT * FROM congress_bio
+        WHERE chamber = '{}'
+        AND served_until = 'Present'
+        ;
+        """.format(chamber), open_connection())
+        all_reps.loc[:, 'last_name'] = all_reps['name'].apply(lambda x: x.split(', ')[0])
+
+
+        ## Set up vars
+        x = tokenize.sent_tokenize(self.section)
+        titles = ['Mr.',
+        'Mrs.',
+        'Miss',
+        'Ms.',
+        'Madam',
+        'SPEAKER',
+        'ACTING PRESIDENT',
+        'PRESIDENT',
+        'pro tempore']
+        speakers = []
+        b_ids = []
+
+
+        ## Find when peopl are talking and tag their name and b_ids
+        for i in range(len(x)):
+            sentence = ""
+            sentence_2 = ""
+            appeard = 0
+            peeps = []
+            reg_search = re.search(r'Mr|Mrs|Miss|Ms|Madam|SPEAKER|ACTING PRESIDENT|PRESIDENT|pro tempore', x[i])
+            try:
+                for title in titles:
+                    if title in reg_search.string:
+                        sentence += '{} '.format(title)
+                for j in range(len(all_reps)):
+                    if all_reps.loc[j, 'last_name'].upper() in reg_search.string:
+                        appeard += 1
+                        peeps.append(j)
+                if appeard > 1:
+                    for _index in peeps:
+                        if all_reps.loc[_index, 'state'] in reg_search.string:
+                            sentence += '{} '.format(all_reps.loc[_index, 'last_name'].upper())
+                            sentence += 'of {}.'.format(all_reps.loc[_index, 'state'])
+                            b_id = all_reps.loc[_index, 'bioguide_id']
+                elif appeard == 1:
+                    sentence += '{}.'.format(all_reps.loc[peeps[0], 'last_name'].upper())
+                    sentence_2 = sentence[:-1] + ' of {}.'.format(all_reps.loc[peeps[0], 'state'])
+                    b_id = all_reps.loc[peeps[0], 'bioguide_id']
+                sentence = sentence.replace("PRESIDENT PRESIDENT", "PRESIDENT")
+                if sentence == reg_search.string:
+                    speakers.append(sentence)
+                    b_ids.append(b_id)
+                elif sentence_2 == reg_search.string:
+                    speakers.append(sentence_2)
+                    b_ids.append(b_id)
+                elif ("The {}.".format(sentence.strip(' '))) == reg_search.string:
+                    speakers.append("The {}.".format(sentence.strip(' ')))
+                    b_ids.append("speaker")
+            except:
+                'nada'
+
+        ## Make df of speakers
+        speaking_df = pd.DataFrame(data=[speakers, b_ids]).transpose().drop_duplicates().reset_index(drop=True)
+        speaking_df.columns = ['speaker', 'b_id']
+
+        ## Make df of sentences
+        sentences_df = pd.DataFrame(x, columns=['speaker'])
+        sentences_df.loc[:, 'speaker_trigger'] = False
+
+        ## Tag where the speakers began speaking
+        ## column for sentence is speaker bc it will be that at the end
+        for i in range(len(speaking_df)):
+            speaker = speaking_df.loc[i, 'speaker']
+            b_id = speaking_df.loc[i, 'b_id']
+
+            sentences_df.loc[sentences_df['speaker'] == speaker, 'speaker_trigger'] = True
+            sentences_df.loc[sentences_df['speaker'] == speaker, 'bioguide_id'] = b_id
+
+        ## Find all of the text between speakers and attribute to speaker
+        indexes = sentences_df.loc[sentences_df['speaker_trigger'] == True].index
+
+        for i in range(len(indexes)):
+            try:
+                body = ''
+                for j in range(indexes[i]+1, indexes[i+1]):
+                    body += sentences_df.loc[j, 'speaker'] + ' '
+                sentences_df.loc[indexes[i], 'speaker_text'] = body.strip(' ')
+            except:
+                for j in range(indexes[i]+1, len(sentences_df)):
+                    body += sentences_df.loc[j, 'speaker'] + ' '
+                sentences_df.loc[indexes[i], 'speaker_text'] = body.strip(' ')
+
+        ## Add what its about
+        sentences_df.loc[:, 'subject'] = self.section_title
+
+        ## Return clean df
+        return sentences_df.loc[sentences_df['speaker_trigger'] == True].reset_index(drop=True)
+    
+    def transcript_to_sql(self):
+        connection = open_connection()
+        cursor = connection.cursor()
+        
+        self.df.loc[:, 'id'] = (self.df['date'].apply(lambda x: str(x).replace('-','')) + 
+                                self.df['chamber'] + self.df.index.astype(str))
+
+        for i in range(len(self.df)):
+            sql_command = """
+            INSERT INTO congressional_record_transcripts (
+            speaker, 
+            bioguide_id, 
+            speaker_text, 
+            subject,
+            date,
+            chamber,
+            id)
+            VALUES ('{}', '{}', '{}', '{}', '{}', '{}', '{}');""".format(
+                sanitize(self.df.loc[i, 'speaker']), 
+                self.df.loc[i, 'bioguide_id'], 
+                sanitize(self.df.loc[i, 'speaker_text']),
+                sanitize(self.df.loc[i, 'subject']), 
+                self.df.loc[i, 'date'], 
+                self.df.loc[i, 'chamber'],
+                self.df.loc[i, 'id'])
+
+            try:
+                # Try to insert, if it can't inset then it should update
+                cursor.execute(sql_command)
+                connection.commit()
+            except:
+                ## I don't want to update anything if it already exists
+                connection.rollback()
+                print 'not work: {}'.format(i)
+        connection.close()
+                
             
     def __init__(self, year=None, month=None, day=None, chamber=None, df=None, table=None):
         self.year = year
@@ -5238,3 +5440,6 @@ class Congressional_report_collector(object):
         self.chamber = chamber
         self.df = df
         self.table = table
+        self.text = None
+        self.section_title = None
+        self.section = None
