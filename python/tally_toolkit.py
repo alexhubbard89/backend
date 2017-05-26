@@ -5461,8 +5461,8 @@ class Congressional_report_collector(object):
 
                 for section in by_section:
                     self.text = section
-                    tally_toolkit.Congressional_report_collector.get_sub_clean_text(self)
-                    clean_df = tally_toolkit.Congressional_report_collector.whatd_they_say(self, chamber)
+                    Congressional_report_collector.get_sub_clean_text(self)
+                    clean_df = Congressional_report_collector.whatd_they_say(self, chamber)
                     if len(clean_df) > 0:
                         master_df = master_df.append(clean_df).reset_index(drop=True)
 
@@ -5473,7 +5473,7 @@ class Congressional_report_collector(object):
                     master_df.loc[:, 'chamber'] = chamber
 
                     self.df = master_df
-                    tally_toolkit.Congressional_report_collector.transcript_to_sql(self)
+                    Congressional_report_collector.transcript_to_sql(self)
             else:
                 'not: {}'.format(i)
                 
