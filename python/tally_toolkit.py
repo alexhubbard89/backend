@@ -5195,7 +5195,7 @@ class Congressional_report_collector(object):
                 self.url = link
                 pdf_str += Congressional_report_collector.pdf_from_url_to_txt(self)
             ## Sanitize the text and save
-            links_df.loc[0, 'pdf_str'] = sanitize(unidecode(pdf_str.decode('utf-8').strip()))
+            links_df.loc[0, 'pdf_str'] = sanitize(unidecode(pdf_str.decode('utf-8')).replace('--', ' ').strip())
         except:
             ## If no links found fuck it
             links_df.loc[0, 'links'] = None
@@ -5260,8 +5260,11 @@ class Congressional_report_collector(object):
         stop words.
         """
 
-        mystr = ' '.join(self.text.replace('-\n','').replace("''", '"').split())
+        mystr = ' '.join(self.text.replace('-\n\n','').replace('-\n','').replace("''", '"').split())
         mystr = mystr.replace("\'", "'")
+        mystr = mystr.replace(" E T A N E S h t i w D O R P 1 N V T P S 4 K S D n o CONGRESSIONAL RECORD SENATE ", "")
+        mystr = mystr.replace(" E T A N E S h t i w D O R P 1 N V T P S 4 K S D n o CONGRESSIONAL RECORD HOUSE ", "")
+
         mystr = mystr.replace("E S U O H h t i w D O R P 1 N V T P T 7 K S D n o k c i r e d e r f r", "")
         mystr = mystr.replace("E S U O H h t i w D O R P 1 N V T P T 7 K S D n o", "")
         mystr = mystr.replace("k c i r e d e r f r", "")
@@ -5460,7 +5463,7 @@ class Congressional_report_collector(object):
                 master_df = pd.DataFrame()
 
                 for section in by_section:
-                    self.text = section
+                    self.text = section.replace('- \n', '-')
                     Congressional_report_collector.get_sub_clean_text(self)
                     clean_df = Congressional_report_collector.whatd_they_say(self, chamber)
                     if len(clean_df) > 0:
