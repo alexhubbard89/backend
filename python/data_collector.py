@@ -8,7 +8,7 @@ import imp
 collect_current_congress = imp.load_source('module', './python/collect_current_congress.py')
 tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
 
-# # # For testing
+# # For testing
 # collect_current_congress = imp.load_source('module', 'collect_current_congress.py')
 # tally_toolkit = imp.load_source('module', 'tally_toolkit.py')
 
@@ -253,20 +253,16 @@ except:
 print "daily report collection"
 try:
     print "for house"
-    daily_collection = tally_toolkit.Congressional_report_collector()
-    daily_collection.chamber = "house"
-    daily_collection.table = "congressional_record_house"
-    tally_toolkit.Congressional_report_collector.collect_missing_reports(daily_collection)
+    house_collection = tally_toolkit.Congressional_report_collector()
+    tally_toolkit.Congressional_report_collector.collect_missing_reports(house_collection, 'house')
     good_collection += """\n\tCongressional reports House"""
 except:
     bad_collection += """\n\tCongressional reports House"""
 
 try:
     print "for senate"
-    daily_collection = tally_toolkit.Congressional_report_collector()
-    daily_collection.chamber = "senate"
-    daily_collection.table = "congressional_record_senate"
-    tally_toolkit.Congressional_report_collector.collect_missing_reports(daily_collection)
+    senate_collection = tally_toolkit.Congressional_report_collector()
+    tally_toolkit.Congressional_report_collector.collect_missing_reports(senate_collection, 'senate')
     good_collection += """\n\tCongressional reports Senate"""
 except:
     bad_collection += """\n\tCongressional reports Senate"""
