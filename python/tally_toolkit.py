@@ -5099,11 +5099,11 @@ class Campaign_contributions(object):
         self.unique_id = unique_id
 
 class Congressional_report_collector(object):
-    def collect_record_link(self):
-        url = "https://www.congress.gov/congressional-record/{}/{}/{}/{}-section".format("{}".format(self.year).zfill(4),
-                                                                     "{}".format(self.month).zfill(2), 
-                                                                     "{}".format(self.day).zfill(2),
-                                                                    self.chamber)
+    def collect_record_link(self, year, month, day, chamber):
+        url = "https://www.congress.gov/congressional-record/{}/{}/{}/{}-section".format("{}".format(year).zfill(4),
+                                                                     "{}".format(month).zfill(2), 
+                                                                     "{}".format(day).zfill(2),
+                                                                    chamber)
         r = requests.get(url)
         if r.status_code == 200:
             page = BeautifulSoup(r.content, 'lxml')
@@ -5114,16 +5114,16 @@ class Congressional_report_collector(object):
             if len(pdf) > 0:
                 return pdf
             
-    def to_sql(self):
+    def to_sql(self, chamber):
         connection = open_connection()
         cursor = connection.cursor()
 
         sql_command = """
-        INSERT INTO {} (
+        INSERT INTO congressional_record_{} (
         date,
         links,
         pdf_str)
-        VALUES ('{}', '{}', '{}');""".format(self.table,
+        VALUES ('{}', '{}', '{}');""".format(chamber,
             self.df.loc[0, 'date'], 
             sanitize(self.df.loc[0, 'links']), 
             self.df.loc[0, 'pdf_str'])
@@ -5135,12 +5135,12 @@ class Congressional_report_collector(object):
         except:
             connection.rollback()
             ## If the update breaks then something is wrong
-            sql_command = """UPDATE {} 
+            sql_command = """UPDATE congressional_record_{} 
             SET  
             links='{}', 
             pdf_str='{}'
             where (date = '{}');""".format(
-                self.table,
+                chamber,
                 sanitize(self.df.loc[0, 'links']),
                 self.df.loc[0, 'pdf_str'],
                 self.df.loc[0, 'date'])
@@ -5177,12 +5177,12 @@ class Congressional_report_collector(object):
         retstr.close()
         return str
             
-    def collect_and_house(self):
+    def collect_and_house(self, year, month, day, chamber):
         ## Collect urls
-        x = Congressional_report_collector.collect_record_link(self)
+        x = Congressional_report_collector.collect_record_link(self, year, month, day, chamber)
         ## Save links associated to date
         links_df = pd.DataFrame()
-        links_df.loc[0, 'date'] = "{}".format(self.year).zfill(4) + "-{}-".format(self.month).zfill(2) + "{}".format(self.day).zfill(2)
+        links_df.loc[0, 'date'] = "{}".format(year).zfill(4) + "-{}-".format(month).zfill(2) + "{}".format(day).zfill(2)
         links_df.loc[0, 'links'] = None
         links_df['links'] = links_df['links'].astype(object)
         try:
@@ -5202,36 +5202,49 @@ class Congressional_report_collector(object):
             links_df.loc[0, 'pdf_str'] = None
         
         self.df = links_df
-
-    def collect_missing_reports(self):
+    
+    @staticmethod
+    def date_list(chamber):
         max_date = pd.read_sql_query("""
-        SELECT max(date) FROM {}
-        ;
-        """.format(self.table), open_connection())
-        max_date = max_date.loc[0, 'max']
-        
-        year = max_date.year
-        self.year = year
-        month = max_date.month
+                    SELECT max(date) FROM congressional_record_{}
+                    ;
+                    """.format(chamber), open_connection()).loc[0, 'max']
+
+        ## Starting varibles
+        year, month, day = max_date.year, max_date.month, max_date.day
+
+        ## Ending variable
         today = str(datetime.datetime.today()).split(' ')[0]
-        
+
+        ## Array of dates to collect
+        date_list = []
+
+        ## Collect array of dats
         for i in range(month, 13):
             if i == month:
-                min_day = max_date.day
+                ## Do not neet to collect for what we have;
+                ## Add one to prevent.
+                min_day = day + 1
             else:
                 min_day = 1
             max_day = calendar.monthrange(year,i)[1]
-            for j in range(min_day, max_day):
+            for j in range(min_day, max_day+1):
                 search_date = '{}-{}-{}'.format(year, '{}'.format(i).zfill(2), '{}'.format(j).zfill(2))
-                
+                ## Convert to date time when saving to array
+                date_list.append(pd.to_datetime(search_date))
+
                 if search_date == today:
-                    return
-                print search_date
+                    return date_list
                 
-                self.month = i
-                self.day = j
-                Congressional_report_collector.collect_and_house(self)
-                Congressional_report_collector.to_sql(self)
+    def collect_missing_reports(self, chamber):
+        date_array = Congressional_report_collector.date_list(chamber)
+        for date in date_array:
+            print date.year
+            print date.month
+            print date.day
+            Congressional_report_collector.collect_and_house(self, date.year, date.month, date.day, chamber)
+            Congressional_report_collector.to_sql(self, chamber)
+        print 'done!'
 
                 
     ########################################
@@ -5481,13 +5494,8 @@ class Congressional_report_collector(object):
                 'not: {}'.format(i)
                 
             
-    def __init__(self, year=None, month=None, day=None, chamber=None, df=None, table=None):
-        self.year = year
-        self.month = month
-        self.day = day
-        self.chamber = chamber
-        self.df = df
-        self.table = table
+    def __init__(self):
+        self.df = pd.DataFrame()
         self.text = None
         self.section_title = None
         self.section = None
