@@ -5104,6 +5104,7 @@ class Congressional_report_collector(object):
                                                                      "{}".format(month).zfill(2), 
                                                                      "{}".format(day).zfill(2),
                                                                     chamber)
+        print url
         r = requests.get(url)
         if r.status_code == 200:
             page = BeautifulSoup(r.content, 'lxml')
@@ -5230,11 +5231,13 @@ class Congressional_report_collector(object):
             max_day = calendar.monthrange(year,i)[1]
             for j in range(min_day, max_day+1):
                 search_date = '{}-{}-{}'.format(year, '{}'.format(i).zfill(2), '{}'.format(j).zfill(2))
-                ## Convert to date time when saving to array
-                date_list.append(pd.to_datetime(search_date))
 
+                ## If it get's to today return the list of dates
                 if search_date == today:
                     return date_list
+
+                ## Convert to date time when saving to array
+                date_list.append(pd.to_datetime(search_date))
                 
     def collect_missing_reports(self, chamber):
         date_array = Congressional_report_collector.date_list(chamber)
