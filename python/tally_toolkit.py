@@ -3623,7 +3623,7 @@ class Search(object):
                   ;""".format(table,
                               self.chamber), open_connection())
         
-        return pd.merge(self.df[['bioguide_id']], 
+        return pd.merge(self.df.drop(['chamber', 'district', 'name', 'party', 'photo_url', 'state'], 1), 
                         rank_df, 
                         how='inner', 
                         on='bioguide_id').drop_duplicates(['bioguide_id'])
