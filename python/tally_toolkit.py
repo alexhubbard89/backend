@@ -459,6 +459,81 @@ class user_info(object):
             except:
                 connection.rollback()
             connection.close()
+
+    @staticmethod      
+    def change_setting(param, user_id, password=None, street=None, zip_code=None):
+        user_params = user_info()
+        if param == 'password':
+            if password == None:
+                return 'no password found'
+            user_params.password = sanitize(password)
+            password = user_info.hash_password(user_params)
+
+            ## Update
+            connection = open_connection()
+            cursor = connection.cursor()
+            sql_command = """UPDATE user_tbl 
+                            SET
+                            password = '{}'
+                            WHERE user_id = '{}';""".format(
+                            password,
+                            user_id)
+            try:
+                cursor.execute(sql_command)
+                connection.commit()
+                connection.close()
+                return True
+            except:
+                connection.rollback()
+                connection.close()
+                return 'who the fuck is that user?'
+        elif param == 'address':
+            try:
+                user_params.street = sanitize(street.replace("'", ''))
+                user_params.zip_code = sanitize('{}'.format(zip_code).zfill(5))
+                user_info.check_address(user_params)
+                if user_params.address_check == True:
+                    search = ZipcodeSearchEngine()
+                    zipcode = search.by_zipcode(str(user_params.zip_code))
+                    user_params.city = str(zipcode['City'].lower().title())
+                    user_params.state_short = str(zipcode['State'])
+                    user_params.state_long = str(us.states.lookup(str(user_params.state_short)))
+                    district = user_info.get_district_from_address(user_params)
+
+                    ## Update
+                    connection = open_connection()
+                    cursor = connection.cursor()
+                    sql_command = """UPDATE user_tbl 
+                                    SET
+                                    street = '{}',
+                                    zip_code = '{}',
+                                    city = '{}',
+                                    state_short = '{}',
+                                    state_long = '{}',
+                                    district = '{}'
+                                    WHERE user_id = '{}';""".format(
+                                    user_params.street,
+                                    user_params.zip_code,
+                                    user_params.city,
+                                    user_params.state_short,
+                                    user_params.state_long,
+                                    district,
+                                    user_id)
+                    try:
+                        cursor.execute(sql_command)
+                        connection.commit()
+                        connection.close()
+                        return True
+                    except:
+                        connection.rollback()
+                        connection.close()
+                        return 'who the fuck is that user?'
+
+            except AttributeError:
+                return "no address found"
+        else:
+            return 'not a real request'
+
     
     def __init__(self, email=None, password=None, password_match=False, first_name=None,
                 last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None,
