@@ -120,6 +120,40 @@ def create_user():
     elif user_made == False:
         return jsonify(results="oops! That user name already exists.")
 
+## Login testing
+@app.route("/change_creds", methods=["POST"])
+def change_creds():
+    ## Set defaults
+    password = None
+    street = None
+    zip_code=None
+    try:
+        print 'trying first way'
+        data = json.loads(request.data.decode())
+        param = data['param']
+        user_id = data['user_id']
+        if param.lower() == 'password':
+            password = tally_toolkit.sanitize(data['password'])
+        elif param.lower() == 'address':
+            street = data['street']
+            zip_code = data['zip_code']
+    except:
+        print 'trying second way'
+        param = request.form['param']
+        user_id = request.form['user_id']
+        if param.lower() == 'password':
+            password = tally_toolkit.sanitize(request.form['password'])
+        elif param.lower() == 'address':
+            street = request.form['street']
+            zip_code = request.form['zip_code']
+
+    ## Pass all params 
+    message = tally_toolkit.user_info.change_setting(param, user_id, password, street, zip_code)
+    return jsonify(results=message)
+
+
+
+
 ## Pass back congress bios
 @app.route("/congress_bio", methods=["POST"])
 def congress_bio():
