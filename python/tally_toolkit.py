@@ -2720,7 +2720,8 @@ class Performance(object):
         df = pd.merge(df.drop(['name', 'state', 'district', 'party', 'photo_url'], 1), 
              missing_df, how='left', on='bioguide_id')
 
-        df.loc[df['number_grade'].isnull(), 'number_grade'] = 'NA'
+        df.loc[df['letter_grade'].isnull(), 'letter_grade'] = 'NA'
+        df.loc[df['number_grade'].isnull(), 'number_grade'] = 0
         return df
 
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
