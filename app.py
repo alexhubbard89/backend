@@ -222,6 +222,8 @@ def rank_attendance():
 
     ## Get data
     tally_toolkit.Performance.get_current_performance(rep_perfomance)
+    rep_perfomance.current_stats = tally_toolkit.Performance.add_card_data(rep_perfomance.current_stats, 
+            rep_perfomance.chamber)
     try:
         return jsonify(results=rep_perfomance.current_stats.to_dict(orient='records'))
     except:
@@ -266,6 +268,8 @@ def rank_participation():
     ## Get data
     try:
         tally_toolkit.Performance.get_current_performance(rep_perfomance)
+        rep_perfomance.current_stats = tally_toolkit.Performance.add_card_data(rep_perfomance.current_stats, 
+            rep_perfomance.chamber)
         return jsonify(results=rep_perfomance.current_stats.to_dict(orient='records'))
     except:
         ## If returns no data
@@ -307,6 +311,8 @@ def rank_efficacy():
 
     try:
         tally_toolkit.Performance.get_current_performance(rep_perfomance)
+        rep_perfomance.current_stats = tally_toolkit.Performance.add_card_data(rep_perfomance.current_stats, 
+                rep_perfomance.chamber)
         return jsonify(results=rep_perfomance.current_stats.to_dict(orient='records'))
     except:
         ## If returns no data
