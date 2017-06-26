@@ -2694,7 +2694,35 @@ class Performance(object):
                                                   ).drop(['chamber'], 1).sort_values(
                                                   ['rank', 'name'])
 
-    
+    @staticmethod
+    def add_card_data(df, chamber):
+        congress_num = current_congress_num()
+
+        missing_df = pd.read_sql_query("""
+            SELECT * FROM (
+            SELECT * FROM congress_bio
+            WHERE served_until = 'Present'
+            AND chamber = '{}')
+            AS bio
+            LEFT JOIN (
+            SELECT bioguide_id as b_id, 
+            letter_grade_extra_credit as letter_grade,
+            total_grade_extra_credit as number_grade 
+            FROM congress_grades
+            WHERE congress = {}
+            AND chamber = '{}')
+            AS grades
+            ON bio.bioguide_id = grades.b_id
+            ;
+            """.format(chamber,
+                       congress_num,
+                      chamber), open_connection())
+        df = pd.merge(df.drop(['name', 'state', 'district', 'party', 'photo_url'], 1), 
+             missing_df, how='left', on='bioguide_id')
+
+        df.loc[df['number_grade'].isnull(), 'number_grade'] = 'NA'
+        return df
+
     def __init__(self, congress_num=None, bioguide_id=None, days_voted=None,
                 rep_votes_metrics=None, rep_sponsor_metrics=None,
                 chamber=None, membership_stats_df=None, policy_area_df=None,
