@@ -1,10 +1,5 @@
 import imp
-tally_toolkit = imp.load_source('module', '/Users/Alexanderhubbard/Documents/projects/backend/python/tally_toolkit.py')
-
-senate_collection = tally_toolkit.Congressional_report_collector()
-tally_toolkit.Congressional_report_collector.collect_missing_reports(senate_collection, 'house')
-
-transcript_cleaning = tally_toolkit.Congressional_report_collector()
-tally_toolkit.Congressional_report_collector.clean_transcripts(transcript_cleaning, 'house')
+reports_tools = imp.load_source('module', 'reports_tools.py')
+reports_tools.Congressional_report_collector.collect_missing_records('house')
         
 print 'done'
