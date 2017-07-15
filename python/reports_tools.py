@@ -135,7 +135,7 @@ class Congressional_report_collector(object):
             subjects_raw = body.findAll('tr')
 
             for i in range(0, len(subjects_raw)):
-                self.subjects.append(' '.join(unidecode(subjects_raw[i].text).split('. ')[1:]).split(' |')[0])
+                self.subjects.append('. '.join(unidecode(subjects_raw[i].text).split('. ')[1:]).split(' |')[0])
                 self.links.append('https://www.congress.gov' + subjects_raw[i].find('a').get('href'))
             ## was data found?
             return True
@@ -154,6 +154,7 @@ class Congressional_report_collector(object):
         print self.links[index]
         r = requests.get(self.links[index])
         page = BeautifulSoup(r.content, 'lxml')
+        page = page.find('div', class_='txt-box')
 
         ## Locate where report starts and ends
         if first == False:
@@ -178,7 +179,10 @@ class Congressional_report_collector(object):
                           columns=['date', 'url', 'text', 'subject', 'chamber'])
         self.record_df = self.record_df.append(df).reset_index(drop=True)
         
-    def record_to_sql(self, tbl):
+    def record_to_sql(self, tbl, uid):
+        ## uid must be an array
+        if isinstance(uid, list) == False:
+            return "uid must be an array"
 
         ## Open Connection
         connection = open_connection()
@@ -210,6 +214,24 @@ class Congressional_report_collector(object):
                 connection.commit()
             except:
                 connection.rollback()
+                for i in range(len(self.record_df)):
+                    ## set structure
+                    string_1 = """UPDATE {} SET """.format(tbl)
+                    string_2 = """ WHERE ("""
+
+                    ## add data
+                    for col in self.record_df.columns:
+                        if col not in uid:
+                            string_1 += "{} = '{}', ".format(col.lower(), self.record_df.loc[i, col.lower()])
+                        elif col in uid:
+                            string_2 += "{} = '{}', ".format(col.lower(), self.record_df.loc[i, col.lower()])
+                    string_1 = string_1[:-2]
+                    string_2 = string_2[:-2] + ");"
+                    sql_command = string_1 + string_2
+
+                    ## Update
+                    cursor.execute(sql_command)
+                    connection.commit()
 
         ## Close yo shit
         connection.close()
@@ -248,10 +270,162 @@ class Congressional_report_collector(object):
                 test_collection.record_df.loc[i, 'index'] = str(test_collection.record_df.loc[i, 'date']).replace('-', '').split(' ')[0] + '{}'.format(i)
 
             ## Save data
-            Congressional_report_collector.record_to_sql(test_collection, "congressional_record_{}".format(chamber))
+            Congressional_report_collector.record_to_sql(test_collection, "congressional_record_{}".format(chamber), uid=['index'])
+
+    def whatd_they_say(self, chamber):
+        if len(self.section) > 0:
+            ## Sometimes the section is blank. It's a bug from the pdf conversion 
+            ## (or at least I think it is).
+
+            # Import peeps
+            all_reps = self.all_reps.loc[self.all_reps['chamber'] == chamber].reset_index(drop=True)
+            all_reps.loc[:, 'last_name'] = all_reps['name'].apply(lambda x: x.split(', ')[0])
+
+
+            ## Set up vars
+            x = tokenize.sent_tokenize(self.section)
+            titles = ['Mr.',
+            'Mrs.',
+            'Miss',
+            'Ms.',
+            'Madam',
+            'SPEAKER',
+            'ACTING PRESIDENT',
+            'PRESIDENT',
+            'pro tempore']
+            speakers = []
+            b_ids = []
+
+
+            ## Find when peopl are talking and tag their name and b_ids
+            for i in range(len(x)):
+                sentence = ""
+                sentence_2 = ""
+                appeard = 0
+                peeps = []
+                reg_search = re.search(r'Mr|Mrs|Miss|Ms|Madam|SPEAKER|ACTING PRESIDENT|PRESIDENT|pro tempore', x[i])
+                try:
+                    for title in titles:
+                        if title in reg_search.string:
+                            sentence += '{} '.format(title)
+                    for j in range(len(all_reps)):
+                        if all_reps.loc[j, 'last_name'].upper().replace('MCC', 'McC') in reg_search.string:
+                            appeard += 1
+                            peeps.append(j)
+                    if appeard > 1:
+                        for _index in peeps:
+                            if all_reps.loc[_index, 'state'] in reg_search.string:
+                                sentence += '{} '.format(all_reps.loc[_index, 'last_name'].upper().replace('MCC', 'McC'))
+                                sentence += 'of {}.'.format(all_reps.loc[_index, 'state'])
+                                b_id = all_reps.loc[_index, 'bioguide_id']
+                    elif appeard == 1:
+                        sentence += '{}.'.format(all_reps.loc[peeps[0], 'last_name'].upper().replace('MCC', 'McC'))
+                        sentence_2 = sentence[:-1] + ' of {}.'.format(all_reps.loc[peeps[0], 'state'])
+                        b_id = all_reps.loc[peeps[0], 'bioguide_id']
+                    sentence = sentence.replace("PRESIDENT PRESIDENT", "PRESIDENT")
+                    if sentence == reg_search.string:
+                        speakers.append(sentence)
+                        b_ids.append(b_id)
+                    elif sentence_2 == reg_search.string:
+                        speakers.append(sentence_2)
+                        b_ids.append(b_id)
+                    elif ("The {}.".format(sentence.strip(' '))) == reg_search.string:
+                        speakers.append("The {}.".format(sentence.strip(' ')))
+                        b_ids.append("speaker")
+                except:
+                    'nada'
+
+            ## Make df of speakers
+            speaking_df = pd.DataFrame(data=[speakers, b_ids]).transpose().drop_duplicates().reset_index(drop=True)
+            speaking_df.columns = ['speaker', 'b_id']
+
+            ## Make df of sentences
+            sentences_df = pd.DataFrame(x, columns=['speaker'])
+            sentences_df.loc[:, 'speaker_trigger'] = False
+
+            ## Tag where the speakers began speaking
+            ## column for sentence is speaker bc it will be that at the end
+            for i in range(len(speaking_df)):
+                speaker = speaking_df.loc[i, 'speaker']
+                b_id = speaking_df.loc[i, 'b_id']
+
+                sentences_df.loc[sentences_df['speaker'] == speaker, 'speaker_trigger'] = True
+                sentences_df.loc[sentences_df['speaker'] == speaker, 'bioguide_id'] = b_id
+
+            ## Find all of the text between speakers and attribute to speaker
+            indexes = sentences_df.loc[sentences_df['speaker_trigger'] == True].index
+
+            for i in range(len(indexes)):
+                try:
+                    body = ''
+                    for j in range(indexes[i]+1, indexes[i+1]):
+                        body += sentences_df.loc[j, 'speaker'] + ' '
+                    sentences_df.loc[indexes[i], 'speaker_text'] = body.strip(' ')
+                except:
+                    for j in range(indexes[i]+1, len(sentences_df)):
+                        body += sentences_df.loc[j, 'speaker'] + ' '
+                    sentences_df.loc[indexes[i], 'speaker_text'] = body.strip(' ')
+
+            ## Add what its about
+            sentences_df.loc[:, 'subject'] = self.section_title
+
+            ## Return clean df
+            return sentences_df.loc[sentences_df['speaker_trigger'] == True].reset_index(drop=True)
+
+    def clean_text(self, df, row, chamber):
+
+        self.section = df.loc[row, 'text']
+        self.section_title = df.loc[row, 'subject']
+
+        subjects = []
+        for i in range(1, len(self.section.split('\n\n\n'))):
+            sub_subject = self.section.split('\n\n\n')[i].split('\n\n')[0].strip(' ')
+            if sub_subject != self.section_title:
+                subjects.append(sub_subject)
+
+        for i in range(10):
+            self.section = self.section.replace('  ', ' ')
+
+        self.section = self.section.strip(' ')
+
+        for subject in np.unique(subjects):
+            self.section = self.section.replace('\n\n\n {}\n\n'.format(subject), '({}).  '.format(subject))
+
+        self.section = self.section.replace('{}\n\n'.format(self.section_title), '')
+        self.section = self.section.replace('\n', '').strip(' ')
+
+        for i in range(10):
+            self.section = self.section.replace('  ', ' ')
+
+        x = Congressional_report_collector.whatd_they_say(self, chamber)
+
+        try:
+            x.loc[:, 'other_subject'] = None
+            x.loc[:, 'chamber'] = chamber
+            x.loc[:, 'index'] = df.loc[row, 'index']
+            for subject in np.unique(subjects):
+                sub_indexes = x.loc[x['speaker_text'].str.contains('({}).'.format(subject))].index
+                for j in sub_indexes:
+                    x.loc[j+1, 'other_subject'] = subject
+                    x.loc[j, 'speaker_text'] = x.loc[j, 'speaker_text'].replace(' ({}).'.format(subject), '')
+                    
+            x.loc[x['other_subject'].isnull(), 'other_subject'] = 'None'
+            
+            for i in x.index:
+                x.loc[i, 'index'] = '{}.{}'.format(x.loc[i, 'index'], i)
+        except ValueError:
+            x = pd.DataFrame()
+            
+                
+        return x
 
         
     def __init__(self):
         self.subjects = []
         self.links = []
         self.record_df = pd.DataFrame()
+        self.all_reps = pd.read_sql_query("""
+            SELECT * FROM congress_bio
+            WHERE served_until = 'Present'
+            ;
+            """, open_connection())
