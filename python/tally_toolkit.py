@@ -250,7 +250,7 @@ class user_info(object):
             where user_id = '{}'""".format(self.user_id)
 
             user_results = pd.read_sql_query(sql_command, open_connection())
-            return user_results[['user_id', 'city', 'state_short', 'state_long', 'first_name', 'last_name', 'district']]
+            return user_results[['user_id', 'city', 'state_short', 'state_long', 'first_name', 'last_name', 'district', 'street', 'zip_code']]
 
         if self.password_match == True:
             sql_command = """
@@ -258,7 +258,7 @@ class user_info(object):
             where email = '{}'""".format(self.email)
 
             user_results = pd.read_sql_query(sql_command, open_connection())
-            return user_results[['user_id', 'city', 'state_short', 'state_long', 'first_name', 'last_name', 'district']]
+            return user_results[['user_id', 'city', 'state_short', 'state_long', 'first_name', 'last_name', 'district', 'street', 'zip_code']]
         elif self.password_match == False:
             return "Check credentials frist"
 
@@ -5429,7 +5429,7 @@ class Congressional_report_collector(object):
             ## Sometimes the section is blank. It's a bug from the pdf conversion 
             ## (or at least I think it is).
 
-            ## Import peeps
+            # Import peeps
             all_reps = pd.read_sql_query("""
             SELECT * FROM congress_bio
             WHERE chamber = '{}'
@@ -5466,17 +5466,17 @@ class Congressional_report_collector(object):
                         if title in reg_search.string:
                             sentence += '{} '.format(title)
                     for j in range(len(all_reps)):
-                        if all_reps.loc[j, 'last_name'].upper() in reg_search.string:
+                        if all_reps.loc[j, 'last_name'].upper().replace('MCC', 'McC') in reg_search.string:
                             appeard += 1
                             peeps.append(j)
                     if appeard > 1:
                         for _index in peeps:
                             if all_reps.loc[_index, 'state'] in reg_search.string:
-                                sentence += '{} '.format(all_reps.loc[_index, 'last_name'].upper())
+                                sentence += '{} '.format(all_reps.loc[_index, 'last_name'].upper().replace('MCC', 'McC'))
                                 sentence += 'of {}.'.format(all_reps.loc[_index, 'state'])
                                 b_id = all_reps.loc[_index, 'bioguide_id']
                     elif appeard == 1:
-                        sentence += '{}.'.format(all_reps.loc[peeps[0], 'last_name'].upper())
+                        sentence += '{}.'.format(all_reps.loc[peeps[0], 'last_name'].upper().replace('MCC', 'McC'))
                         sentence_2 = sentence[:-1] + ' of {}.'.format(all_reps.loc[peeps[0], 'state'])
                         b_id = all_reps.loc[peeps[0], 'bioguide_id']
                     sentence = sentence.replace("PRESIDENT PRESIDENT", "PRESIDENT")
