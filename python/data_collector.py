@@ -255,7 +255,12 @@ except:
 print "daily report collection"
 try:
     print "for house"
+    ## New recoreds
     reports_tools.Congressional_report_collector.collect_missing_records('house')
+    good_collection += """\n\tCongressional reports House"""
+
+    ## Check the null records
+    reports_tools.Congressional_report_collector.collect_missing_records('house', type='null')
     good_collection += """\n\tCongressional reports House"""
 except:
     bad_collection += """\n\tCongressional reports House"""
@@ -264,6 +269,10 @@ try:
     print "for senate"
     reports_tools.Congressional_report_collector.collect_missing_records('senate')
     good_collection += """\n\tCongressional reports Senate"""
+
+    ## Check the null records
+    reports_tools.Congressional_report_collector.collect_missing_records('senate', type='null')
+    good_collection += """\n\tCongressional reports Senate"""
 except:
     bad_collection += """\n\tCongressional reports Senate"""
 
@@ -271,14 +280,14 @@ print "clean the transcripts"
 transcript_cleaning = tally_toolkit.Congressional_report_collector()
 try:
     print 'house'
-    tally_toolkit.Congressional_report_collector.clean_transcripts(transcript_cleaning, 'house')
+    reports_tools.Congressional_report_collector.clean_missing_text('house')
     good_collection += """\n\tCongressional reports cleaning House"""
 except:
     bad_collection += """\n\tCongressional reports cleaning House"""
 
 try:
     print 'senate'
-    tally_toolkit.Congressional_report_collector.clean_transcripts(transcript_cleaning, 'senate')
+    reports_tools.Congressional_report_collector.clean_missing_text('senate')
     good_collection += """\n\tCongressional reports cleaning Senate"""
 except:
     bad_collection += """\n\tCongressional reports cleaning Senate"""
