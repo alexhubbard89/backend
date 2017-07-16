@@ -8,6 +8,8 @@ import urlparse
 import os
 import datetime
 import calendar
+from nltk import tokenize
+import re
 
 def sanitize(inputstr):
     sanitized = str(inputstr).replace("'", "''")
