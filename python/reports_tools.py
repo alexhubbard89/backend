@@ -192,7 +192,10 @@ class Congressional_report_collector(object):
             try:
                 self.record_df[col] = self.record_df[col].apply(lambda x: sanitize(unidecode(x)))
             except:
-                "probs not a string"
+                try:
+                    self.record_df[col] = self.record_df[col].apply(lambda x: sanitize(x))
+                except:
+                    "probs not a string"
 
         ## Loop through df
         for i in range(len(self.record_df)):
@@ -224,9 +227,12 @@ class Congressional_report_collector(object):
                         if col not in uid:
                             string_1 += "{} = '{}', ".format(col.lower(), self.record_df.loc[i, col.lower()])
                         elif col in uid:
-                            string_2 += "{} = '{}', ".format(col.lower(), self.record_df.loc[i, col.lower()])
+                            if len(string_2) > 8:
+                                string_2 += " AND {} = '{}'".format(col.lower(), self.record_df.loc[i, col.lower()])
+                            else:
+                                string_2 += "{} = '{}'".format(col.lower(), self.record_df.loc[i, col.lower()])
                     string_1 = string_1[:-2]
-                    string_2 = string_2[:-2] + ");"
+                    string_2 = string_2[:] + ");"
                     sql_command = string_1 + string_2
 
                     ## Update
@@ -237,11 +243,20 @@ class Congressional_report_collector(object):
         connection.close()
 
     @staticmethod   
-    def collect_missing_records(chamber):
+    def collect_missing_records(chamber, type='new'):
         chamber = chamber.lower()
 
         ## Find missing dates
-        collect_dates = Congressional_report_collector.date_list(chamber)
+        if type == 'new':
+            collect_dates = Congressional_report_collector.date_list(chamber)
+        elif type.lower() == 'null':
+            collect_dates = pd.read_sql_query("""
+            SELECT date FROM congressional_record_{}
+            WHERE text = 'None'
+            ;
+            """.format(chamber.lower()), open_connection())
+            
+            collect_dates = list(df['date'])
 
         ## Loop though missing dates
         for date in collect_dates:
@@ -271,6 +286,7 @@ class Congressional_report_collector(object):
 
             ## Save data
             Congressional_report_collector.record_to_sql(test_collection, "congressional_record_{}".format(chamber), uid=['index'])
+
 
     def whatd_they_say(self, chamber):
         if len(self.section) > 0:
@@ -418,6 +434,48 @@ class Congressional_report_collector(object):
             
                 
         return x
+
+    @staticmethod 
+    def daily_text_clean(chamber, date):
+        
+        ## Get raw text
+        df = pd.read_sql_query("""
+        SELECT * FROM congressional_record_{}
+        WHERE date = '{}'
+        ;
+        """.format(chamber, date), open_connection())
+        
+        ## Set obejct and clean for each subject
+        test_cleaning = Congressional_report_collector()
+        for i in df.index:
+            test_cleaning.record_df = test_cleaning.record_df.append(Congressional_report_collector.clean_text(test_cleaning, df, i, chamber)).reset_index(drop=True)
+
+        ## Add to sql
+        Congressional_report_collector.record_to_sql(test_cleaning, 'congressional_record_transcripts', ['index', 'chamber'])
+
+    @staticmethod 
+    def clean_missing_text(chamber):
+        ########## Get date list to clean ##########
+        cleaned_date = pd.read_sql_query("""
+        SELECT index, chamber FROM congressional_record_transcripts
+        WHERE chamber = '{}'
+        """.format(chamber.lower()), open_connection())
+        cleaned_date.loc[:, 'dates'] = cleaned_date.loc[:, 'index'].apply(lambda x: '{}-{}-{}'.format(x[:4], x[4:6], x[6:8]))
+
+        all_dates = pd.read_sql_query("""
+        SELECT DISTINCT date FROM congressional_record_{}
+        WHERE text != 'None'
+        ORDER BY date asc
+        ;
+        """.format(chamber.lower()), open_connection())
+        all_dates.loc[:, 'date'] = all_dates.loc[:, 'date'].astype(str)
+
+        date_list = set(list(all_dates['date'])) - set(list(cleaned_date['dates'].drop_duplicates()))
+    
+        ## For each date get the data        
+        for date in date_list:
+            print date
+            Congressional_report_collector.daily_text_clean(chamber, date)
 
         
     def __init__(self):
