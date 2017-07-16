@@ -477,7 +477,10 @@ class Congressional_report_collector(object):
         ## For each date get the data        
         for date in date_list:
             print date
-            Congressional_report_collector.daily_text_clean(chamber, date)
+            try:
+                Congressional_report_collector.daily_text_clean(chamber, date)
+            except:
+                print "not work"
 
         
     def __init__(self):
