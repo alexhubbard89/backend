@@ -9,10 +9,10 @@ collect_current_congress = imp.load_source('module', './python/collect_current_c
 tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
 reports_tools = imp.load_source('module', './python/reports_tools.py')
 
-# # For testing
+# # # For testing
 # collect_current_congress = imp.load_source('module', 'collect_current_congress.py')
 # tally_toolkit = imp.load_source('module', 'tally_toolkit.py')
-# reports_tools = imp.load_source('module', 'python/reports_tools.py')
+# reports_tools = imp.load_source('module', 'reports_tools.py')
 
 fromaddr = 'tallyscraper@gmail.com'
 toaddrs = 'alexhubbard89@gmail.com'
@@ -254,7 +254,7 @@ except:
 
 print "daily report collection"
 try:
-    print "for house"
+print "for house"
     ## New recoreds
     reports_tools.Congressional_report_collector.collect_missing_records('house')
     good_collection += """\n\tCongressional reports House"""
@@ -277,7 +277,6 @@ except:
     bad_collection += """\n\tCongressional reports Senate"""
 
 print "clean the transcripts"
-transcript_cleaning = tally_toolkit.Congressional_report_collector()
 try:
     print 'house'
     reports_tools.Congressional_report_collector.clean_missing_text('house')
