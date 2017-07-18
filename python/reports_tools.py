@@ -258,7 +258,7 @@ class Congressional_report_collector(object):
             ;
             """.format(chamber.lower()), open_connection())
             
-            collect_dates = list(df['date'])
+            collect_dates = list(collect_dates['date'])
 
         ## Loop though missing dates
         for date in collect_dates:
