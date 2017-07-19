@@ -55,6 +55,7 @@ def open_connection():
 This would be too much to put into a class"""
 def sanitize(inputstr):
     sanitized = str(inputstr).replace("'", "''")
+    sanitized = str(sanitized).replace("--", " - ")
     badstrings = [
         ';',
         '$',

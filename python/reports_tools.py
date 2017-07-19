@@ -452,6 +452,9 @@ class Congressional_report_collector(object):
         for i in df.index:
             test_cleaning.record_df = test_cleaning.record_df.append(Congressional_report_collector.clean_text(test_cleaning, df, i, chamber)).reset_index(drop=True)
 
+        ## Add date column
+        test_cleaning.record_df.loc[:, 'date'] = date
+
         ## Add to sql
         Congressional_report_collector.record_to_sql(test_cleaning, 'congressional_record_transcripts', ['index', 'chamber'])
 
