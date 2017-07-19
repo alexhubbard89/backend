@@ -13,6 +13,7 @@ import re
 
 def sanitize(inputstr):
     sanitized = str(inputstr).replace("'", "''")
+    sanitized = str(sanitized).replace("--", " - ")
     badstrings = [
         ';',
         '$',
@@ -25,7 +26,6 @@ def sanitize(inputstr):
         '--',
         '1,2',
         '\x00',
-        '`',
         '(',
         ')',
         'file://',
@@ -219,7 +219,7 @@ class Congressional_report_collector(object):
                 connection.commit()
             except:
                 connection.rollback()
-                for i in range(len(self.record_df)):
+                for j in range(len(self.record_df)):
                     ## set structure
                     string_1 = """UPDATE {} SET """.format(tbl)
                     string_2 = """ WHERE ("""
@@ -227,12 +227,12 @@ class Congressional_report_collector(object):
                     ## add data
                     for col in self.record_df.columns:
                         if col not in uid:
-                            string_1 += "{} = '{}', ".format(col.lower(), self.record_df.loc[i, col.lower()])
+                            string_1 += "{} = '{}', ".format(col.lower(), self.record_df.loc[j, col.lower()])
                         elif col in uid:
                             if len(string_2) > 8:
-                                string_2 += " AND {} = '{}'".format(col.lower(), self.record_df.loc[i, col.lower()])
+                                string_2 += " AND {} = '{}'".format(col.lower(), self.record_df.loc[j, col.lower()])
                             else:
-                                string_2 += "{} = '{}'".format(col.lower(), self.record_df.loc[i, col.lower()])
+                                string_2 += "{} = '{}'".format(col.lower(), self.record_df.loc[j, col.lower()])
                     string_1 = string_1[:-2]
                     string_2 = string_2[:] + ");"
                     sql_command = string_1 + string_2
