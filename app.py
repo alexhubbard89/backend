@@ -80,6 +80,7 @@ def create_user():
         # user.dob = tally_toolkit.sanitize(data['dob'])
         user.street = tally_toolkit.sanitize(data['street'].replace("'", ''))
         user.zip_code = tally_toolkit.sanitize(data['zip_code'])
+        user.party = tally_toolkit.sanitize(data['party'])
 
     except:
         print 'trying second way'
@@ -91,6 +92,7 @@ def create_user():
         # user.dob = tally_toolkit.sanitize(request.form['dob'])
         user.street = tally_toolkit.sanitize(request.form['street'].replace("'", ''))
         user.zip_code = tally_toolkit.sanitize(request.form['zip_code'])
+        user.party = tally_toolkit.sanitize(request.form['party'])
 
     #### Validate
 
