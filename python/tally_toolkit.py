@@ -122,7 +122,7 @@ class user_info(object):
 
         df = pd.DataFrame(columns=[['email', 'password', 'first_name', 
             'last_name', 'gender', 'dob', 'street', 'zip_code', 'city',
-            'state_short', 'state_long', 'district']])
+            'state_short', 'state_long', 'district', 'party']])
         
 
         df.loc[0, 'email'] = self.email
@@ -142,6 +142,7 @@ class user_info(object):
         self.state_long = df.loc[0, 'state_long']
 
         df.loc[0, 'district'] = user_info.get_district_from_address(self)
+        df.loc[0, 'party'] = self.party
 
         return df
 
@@ -171,10 +172,11 @@ class user_info(object):
             last_name,
             gender,
             dob,
-            district)
+            district,
+            party)
             VALUES ('{email}', '{password}', '{street}', '{zip_code}', '{city}', '{state_short}',
                     '{state_long}', '{first_name}', '{last_name}', 
-                    '{gender}', '{dob}', '{district}');"""
+                    '{gender}', '{dob}', '{district}', '{party}');"""
 
 
         sql_command = format_str.format(email=self.user_df.loc[0, 'email'], 
@@ -186,7 +188,8 @@ class user_info(object):
             last_name=self.user_df.loc[0, 'last_name'], 
             gender=self.user_df.loc[0, 'gender'], 
             dob=self.user_df.loc[0, 'dob'], 
-            district=int(self.user_df.loc[0, 'district']))
+            district=int(self.user_df.loc[0, 'district']),
+            party=self.user_df.loc[0, 'party'])
 
 
         try:
@@ -540,7 +543,7 @@ class user_info(object):
                 last_name=None, gender=None, dob=None, street=None, zip_code=None, user_df=None,
                 state_long=None, district=None, bioguide_id_to_search=None, chamber=None,
                 address_check=None, return_rep_list=None, city=None, state_short=None,
-                user_id=None):
+                user_id=None, party=None):
         self.email = email
         self.password = password
         self.password_match = password_match
@@ -550,6 +553,7 @@ class user_info(object):
         self.dob = dob
         self.street = street
         self.zip_code = zip_code
+        self.party = party
         self.user_df = user_df
         self.state_long = state_long
         self.district = district
