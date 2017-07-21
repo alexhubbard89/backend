@@ -22,6 +22,7 @@ print "look through days to get raw text"
 ## make object
 collect_missing = reports_tools.Congressional_report_collector()
 chamber = 'house'
+broken_dates = []
 for date in date_list:
     print date
     record_exists = reports_tools.Congressional_report_collector.collect_subjets_and_links(collect_missing, year=date.year, 
@@ -35,9 +36,14 @@ for date in date_list:
             elif i == 0:
                 reports_tools.Congressional_report_collector.collect_text(collect_missing, index=i, date=date, chamber=chamber, first=True)
 
-        reports_tools.Congressional_report_collector.record_to_sql(collect_missing, "congressional_record_{}".format(chamber), uid=['index'])
+        try:
+            reports_tools.Congressional_report_collector.record_to_sql(collect_missing, "congressional_record_{}".format(chamber), uid=['index'])
+        except:
+            print "sql wrong"
+            broken_dates.append(date)
     else:
         print "no data"
 
         
 print 'done'
+print broken_dates
