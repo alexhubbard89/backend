@@ -158,28 +158,34 @@ class Congressional_report_collector(object):
         page = BeautifulSoup(r.content, 'lxml')
         page = page.find('div', class_='txt-box')
 
-        ## Locate where report starts and ends
-        if first == False:
-            page_text = page.text.split('[www.gpo.gov]\n\n')[1].split('____________________')[0]
-        elif first == True:
-            try:
-                page_text = page.text.split('-----------------------------------------------------------------------')[1].split('____________________')[0]
-            except:
-                page_text = page.text.split('[www.gpo.gov]\n\n')[1].split('____________________')[0]
-
-
-        ## If exists clean out page numbers
         try:
-            start_int = int(page_text.split('[[Page S')[1].split(']]')[0])
-            end_int = int(page_text.split('[[Page S')[len(page_text.split('[[Page S')) -1].split(']]')[0])
-            for i in range(start_int, end_int+1):
-                page_text = page_text.replace('\n\n[[Page S{}]]\n\n'.format(i), ' ')
-        except:
-            "No page numbers"
+            ## Locate where report starts and ends
+            if first == False:
+                page_text = page.text.split('[www.gpo.gov]\n\n')[1].split('____________________')[0]
+            elif first == True:
+                try:
+                    page_text = page.text.split('-----------------------------------------------------------------------')[1].split('____________________')[0]
+                except:
+                    page_text = page.text.split('[www.gpo.gov]\n\n')[1].split('____________________')[0]
 
-        df = pd.DataFrame(data=[[date, self.links[index], page_text, self.subjects[index], chamber.lower()]], 
-                          columns=['date', 'url', 'text', 'subject', 'chamber'])
+
+            ## If exists clean out page numbers
+            try:
+                start_int = int(page_text.split('[[Page S')[1].split(']]')[0])
+                end_int = int(page_text.split('[[Page S')[len(page_text.split('[[Page S')) -1].split(']]')[0])
+                for i in range(start_int, end_int+1):
+                    page_text = page_text.replace('\n\n[[Page S{}]]\n\n'.format(i), ' ')
+            except:
+                "No page numbers"
+
+            df = pd.DataFrame(data=[[date, self.links[index], page_text, self.subjects[index], chamber.lower()]], 
+                              columns=['date', 'url', 'text', 'subject', 'chamber'])
+
+        except:
+            df = pd.DataFrame(data=[[date, self.links[index], "NO TEXT FOUND", self.subjects[index], chamber.lower()]], 
+                              columns=['date', 'url', 'text', 'subject', 'chamber'])
         self.record_df = self.record_df.append(df).reset_index(drop=True)
+
         
     def record_to_sql(self, tbl, uid):
         ## uid must be an array
