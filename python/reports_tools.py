@@ -255,8 +255,10 @@ class Congressional_report_collector(object):
             collect_dates = pd.read_sql_query("""
             SELECT date FROM congressional_record_{}
             WHERE text = 'None'
+            AND date > '{}-01-01'
             ;
-            """.format(chamber.lower()), open_connection())
+            """.format(chamber.lower(),
+                datetime.datetime.now().year), open_connection())
             
             collect_dates = list(collect_dates['date'])
 
@@ -462,20 +464,24 @@ class Congressional_report_collector(object):
     def clean_missing_text(chamber):
         ########## Get date list to clean ##########
         cleaned_date = pd.read_sql_query("""
-        SELECT index, chamber FROM congressional_record_transcripts
+        SELECT chamber, date FROM congressional_record_transcripts
         WHERE chamber = '{}'
-        """.format(chamber.lower()), open_connection())
-        cleaned_date.loc[:, 'dates'] = cleaned_date.loc[:, 'index'].apply(lambda x: '{}-{}-{}'.format(x[:4], x[4:6], x[6:8]))
+        AND date > '{}-01-01'
+        """.format(chamber.lower(),
+            datetime.datetime.now().year
+            ), open_connection())
 
         all_dates = pd.read_sql_query("""
         SELECT DISTINCT date FROM congressional_record_{}
         WHERE text != 'None'
+        AND date > '{}-01-01'
         ORDER BY date asc
         ;
-        """.format(chamber.lower()), open_connection())
+        """.format(chamber.lower(), 
+        datetime.datetime.now().year), open_connection())
         all_dates.loc[:, 'date'] = all_dates.loc[:, 'date'].astype(str)
 
-        date_list = set(list(all_dates['date'])) - set(list(cleaned_date['dates'].drop_duplicates()))
+        date_list = set(list(all_dates['date'])) - set(list(cleaned_date['date'].drop_duplicates()))
     
         ## For each date get the data        
         for date in date_list:
