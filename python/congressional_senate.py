@@ -18,8 +18,8 @@ url = 'https://www.congress.gov/congressional-record/1995/01/04/senate-section'
 print "try with header"
 r = requests.get(url, headers=headers)
 print "trying to connect to url:\n{}".format(url)
-print "resonse is: {}".format(r.status_code)
-if r.status_code == 429:
+print "response is: {}".format(r.status_code)
+if r.status_code != 200:
     print "this is the content"
     print r.content
 
@@ -29,7 +29,7 @@ print '\n\n\n'
 print "try without header"
 r = requests.get(url)
 print "trying to connect to url:\n{}".format(url)
-print "resonse is: {}".format(r.status_code)
-if r.status_code == 429:
+print "response is: {}".format(r.status_code)
+if r.status_code != 200:
     print "this is the content"
     print r.content
