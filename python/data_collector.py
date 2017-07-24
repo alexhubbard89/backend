@@ -254,7 +254,7 @@ except:
 
 print "daily report collection"
 try:
-print "for house"
+    print "for house"
     ## New recoreds
     reports_tools.Congressional_report_collector.collect_missing_records('house')
     good_collection += """\n\tCongressional reports House"""
