@@ -298,14 +298,22 @@ class Congressional_report_collector(object):
             Congressional_report_collector.record_to_sql(test_collection, "congressional_record_{}".format(chamber), uid=['index'])
 
 
-    def whatd_they_say(self, chamber):
+    def whatd_they_say(self, chamber, year):
         if len(self.section) > 0:
             ## Sometimes the section is blank. It's a bug from the pdf conversion 
             ## (or at least I think it is).
 
-            # Import peeps
+            # # Import peeps
             all_reps = self.all_reps.loc[self.all_reps['chamber'] == chamber].reset_index(drop=True)
             all_reps.loc[:, 'last_name'] = all_reps['name'].apply(lambda x: x.split(', ')[0])
+
+            ## subset for year
+            all_reps.loc[all_reps['served_until'] == 'Present', 'served_until'] = 2017
+            all_reps.loc[:, 'served_until'] = all_reps.loc[:, 'served_until'].astype(int)
+            all_reps.loc[:, 'year_elected'] = all_reps.loc[:, 'year_elected'].astype(int)
+
+            all_reps = all_reps.loc[((all_reps['year_elected'] <= int(year)) &
+                (all_reps['served_until'] > int(year)))].reset_index(drop=True)
 
 
             ## Set up vars
@@ -402,6 +410,7 @@ class Congressional_report_collector(object):
 
         self.section = df.loc[row, 'text']
         self.section_title = df.loc[row, 'subject']
+        year = df.loc[row, 'date'].year
 
         subjects = []
         for i in range(1, len(self.section.split('\n\n\n'))):
@@ -423,7 +432,7 @@ class Congressional_report_collector(object):
         for i in range(10):
             self.section = self.section.replace('  ', ' ')
 
-        x = Congressional_report_collector.whatd_they_say(self, chamber)
+        x = Congressional_report_collector.whatd_they_say(self, chamber, year)
 
         try:
             x.loc[:, 'other_subject'] = None
@@ -504,6 +513,5 @@ class Congressional_report_collector(object):
         self.record_df = pd.DataFrame()
         self.all_reps = pd.read_sql_query("""
             SELECT * FROM congress_bio
-            WHERE served_until = 'Present'
             ;
             """, open_connection())
