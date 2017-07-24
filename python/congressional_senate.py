@@ -1,43 +1,35 @@
-import pandas as pd
-import numpy as np
+from urllib2 import urlopen
 import requests
-import os
-import calendar
+from bs4 import BeautifulSoup
 
-import imp
-reports_tools = imp.load_source('module', './python/reports_tools.py')
 
-print "collet list of dates"
-date_list = []
-for year in range(1995, 2017):
-    ## Collect array of dats
-    for month in range(1, 13):
-        num_days = calendar.monthrange(year, month)[1]
-        for day in range(1, num_days+1):
-            search_date = '{}-{}-{}'.format(year, '{}'.format(month).zfill(2), '{}'.format(day).zfill(2))
-            ## Convert to date time when saving to array
-            date_list.append(pd.to_datetime(search_date))
+my_ip = urlopen('http://ip.42.pl/raw').read()
 
-print "look through days to get raw text"
-## make object
-collect_missing = reports_tools.Congressional_report_collector()
-chamber = 'senate'
-for date in date_list:
-    print date
-    record_exists = reports_tools.Congressional_report_collector.collect_subjets_and_links(collect_missing, year=date.year, 
-                                                  month=date.month, day=date.day, chamber=chamber)
-    if record_exists == True:
-        for i in range(len(collect_missing.subjects)):
-            print i
-            print collect_missing.subjects[i]
-            if i > 0:
-                reports_tools.Congressional_report_collector.collect_text(collect_missing, index=i, date=date, chamber=chamber)
-            elif i == 0:
-                reports_tools.Congressional_report_collector.collect_text(collect_missing, index=i, date=date, chamber=chamber, first=True)
+headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36'
+    }
 
-        reports_tools.Congressional_report_collector.record_to_sql(collect_missing, "congressional_record_{}".format(chamber), uid=['index'])
-    else:
-        print "no data"
+print "this is my ip address {}".format(my_ip)
 
-        
-print 'done'
+url = 'https://www.congress.gov/congressional-record/1995/01/04/senate-section'
+
+
+
+print "try with header"
+r = requests.get(url, headers=headers)
+print "trying to connect to url:\n{}".format(url)
+print "resonse is: {}".format(r.status_code)
+if r.status_code == 429:
+    print "this is the content"
+    print r.content
+
+
+print '\n\n\n'
+
+print "try without header"
+r = requests.get(url)
+print "trying to connect to url:\n{}".format(url)
+print "resonse is: {}".format(r.status_code)
+if r.status_code == 429:
+    print "this is the content"
+    print r.content
