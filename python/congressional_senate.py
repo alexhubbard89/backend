@@ -14,7 +14,7 @@ def free_proxy_list_net():
         return False
 
 
-    page = BeautifulSoup(r.content, 'html5lib')
+    page = BeautifulSoup(r.content, 'lxml')
     table = page.find('table', id='proxylisttable')
 
     cols = []
@@ -45,7 +45,7 @@ def hide_my_name():
         return False
 
 
-    page = BeautifulSoup(r.content, 'html5lib')
+    page = BeautifulSoup(r.content, 'lxml')
     table = page.find('table', class_='proxy__t')
 
     cols = []
