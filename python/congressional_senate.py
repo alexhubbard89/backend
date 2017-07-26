@@ -202,29 +202,29 @@ class Congressional_report_collector(object):
         s.mount('http://', a)
         headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
         s.headers.update(headers)
-        try:
-            r = s.get(url)
-            page = BeautifulSoup(r.content, 'lxml')
+        # try:
+        r = s.get(url)
+        page = BeautifulSoup(r.content, 'lxml')
 
-            try:
-                body = page.find("tbody")
-                subjects_raw = body.findAll('tr')
+        # try:
+        body = page.find("tbody")
+        subjects_raw = body.findAll('tr')
 
-                for i in range(0, len(subjects_raw)):
-                    self.subjects.append('. '.join(unidecode(subjects_raw[i].text).split('. ')[1:]).split(' |')[0])
-                    self.links.append('https://www.congress.gov' + subjects_raw[i].find('a').get('href'))
-                ## was data found?
-                return True
-            except:
-                ## was data found?
-                date = pd.to_datetime("{}-{}-{}".format("{}".format(year).zfill(4),
-                      "{}".format(month).zfill(2), 
-                      "{}".format(day).zfill(2)))
-                self.record_df = pd.DataFrame(data=[[date, None, None, None, chamber.lower()]], 
-                                  columns=['date', 'url', 'text', 'subject', 'chamber'])
-                return False
-        except:
-            return "ip expired"
+        for i in range(0, len(subjects_raw)):
+            self.subjects.append('. '.join(unidecode(subjects_raw[i].text).split('. ')[1:]).split(' |')[0])
+            self.links.append('https://www.congress.gov' + subjects_raw[i].find('a').get('href'))
+        ## was data found?
+        return True
+            # except:
+            #     ## was data found?
+            #     date = pd.to_datetime("{}-{}-{}".format("{}".format(year).zfill(4),
+            #           "{}".format(month).zfill(2), 
+            #           "{}".format(day).zfill(2)))
+            #     self.record_df = pd.DataFrame(data=[[date, None, None, None, chamber.lower()]], 
+            #                       columns=['date', 'url', 'text', 'subject', 'chamber'])
+            #     return False
+        # except:
+        #     return "ip expired"
     
     def collect_text(self, index, date, chamber, ip, port, first=False):
         url = self.links[index]
@@ -239,42 +239,42 @@ class Congressional_report_collector(object):
         s.mount('http://', a)
         headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
         s.headers.update(headers)
-        try:
-            r = s.get(url)
-        
-            page = BeautifulSoup(r.content, 'lxml')
-            page = page.find('div', class_='txt-box')
+        # try:
+        r = s.get(url)
+    
+        page = BeautifulSoup(r.content, 'lxml')
+        page = page.find('div', class_='txt-box')
 
+        # try:
+        ## Locate where report starts and ends
+        if first == False:
+            page_text = page.text.split('[www.gpo.gov]\n\n')[1].split('____________________')[0]
+        elif first == True:
             try:
-                ## Locate where report starts and ends
-                if first == False:
-                    page_text = page.text.split('[www.gpo.gov]\n\n')[1].split('____________________')[0]
-                elif first == True:
-                    try:
-                        page_text = page.text.split('-----------------------------------------------------------------------')[1].split('____________________')[0]
-                    except:
-                        page_text = page.text.split('[www.gpo.gov]\n\n')[1].split('____________________')[0]
-
-
-                ## If exists clean out page numbers
-                try:
-                    start_int = int(page_text.split('[[Page S')[1].split(']]')[0])
-                    end_int = int(page_text.split('[[Page S')[len(page_text.split('[[Page S')) -1].split(']]')[0])
-                    for i in range(start_int, end_int+1):
-                        page_text = page_text.replace('\n\n[[Page S{}]]\n\n'.format(i), ' ')
-                except:
-                    "No page numbers"
-
-                df = pd.DataFrame(data=[[date, self.links[index], page_text, self.subjects[index], chamber.lower()]], 
-                                  columns=['date', 'url', 'text', 'subject', 'chamber'])
-
+                page_text = page.text.split('-----------------------------------------------------------------------')[1].split('____________________')[0]
             except:
-                df = pd.DataFrame(data=[[date, self.links[index], "NO TEXT FOUND", self.subjects[index], chamber.lower()]], 
-                                  columns=['date', 'url', 'text', 'subject', 'chamber'])
-            self.record_df = self.record_df.append(df).reset_index(drop=True)
-            return True
+                page_text = page.text.split('[www.gpo.gov]\n\n')[1].split('____________________')[0]
+
+
+        ## If exists clean out page numbers
+        try:
+            start_int = int(page_text.split('[[Page S')[1].split(']]')[0])
+            end_int = int(page_text.split('[[Page S')[len(page_text.split('[[Page S')) -1].split(']]')[0])
+            for i in range(start_int, end_int+1):
+                page_text = page_text.replace('\n\n[[Page S{}]]\n\n'.format(i), ' ')
         except:
-            return "ip expired"
+            "No page numbers"
+
+        df = pd.DataFrame(data=[[date, self.links[index], page_text, self.subjects[index], chamber.lower()]], 
+                          columns=['date', 'url', 'text', 'subject', 'chamber'])
+
+        #     except:
+        #         df = pd.DataFrame(data=[[date, self.links[index], "NO TEXT FOUND", self.subjects[index], chamber.lower()]], 
+        #                           columns=['date', 'url', 'text', 'subject', 'chamber'])
+        #     self.record_df = self.record_df.append(df).reset_index(drop=True)
+        #     return True
+        # except:
+        #     return "ip expired"
         
     def record_to_sql(self, tbl, uid):
         ## uid must be an array
@@ -348,15 +348,17 @@ class Congressional_report_collector(object):
 
 
 print "collet list of dates"
-date_list = []
-for year in range(1997, 2017):
-    ## Collect array of dats
-    for month in range(1, 13):
-        num_days = calendar.monthrange(year, month)[1]
-        for day in range(1, num_days+1):
-            search_date = '{}-{}-{}'.format(year, '{}'.format(month).zfill(2), '{}'.format(day).zfill(2))
-            ## Convert to date time when saving to array
-            date_list.append(pd.to_datetime(search_date))
+# date_list = []
+# for year in range(1997, 2017):
+#     ## Collect array of dats
+#     for month in range(1, 13):
+#         num_days = calendar.monthrange(year, month)[1]
+#         for day in range(1, num_days+1):
+#             search_date = '{}-{}-{}'.format(year, '{}'.format(month).zfill(2), '{}'.format(day).zfill(2))
+#             ## Convert to date time when saving to array
+#             date_list.append(pd.to_datetime(search_date))
+
+date_list = [pd.to_datetime("2011-07-18"), pd.to_datetime("2004-05-07"), pd.to_datetime("2008-03-18"), pd.to_datetime("2015-10-13")]
 
 ## Dont need the whole this for testing
 # date_list = list(pd.DataFrame(pd.to_datetime(date_list)).head(20)[0])
@@ -374,7 +376,7 @@ while len(date_list) > 0:
     date = date_list[0]
     collection = Congressional_report_collector.collect_subjets_and_links(test_collection, date.year, date.month, date.day, chamber, str(ip_df.loc[0, ip_df.columns[0]]), str(ip_df.loc[0, ip_df.columns[1]]))
     print date
-    print collection
+    print '"collect_subjets_and_links" message: {}'.format(collection)
     if collection != "ip expired":
         """If collection happened remove from date list
         do the rest of the collection aaannndd save to sql"""
@@ -390,6 +392,7 @@ while len(date_list) > 0:
             elif counter == 0:
                 collected = Congressional_report_collector.collect_text(test_collection, index=counter, date=date, chamber=chamber, ip=str(ip_df.loc[0, ip_df.columns[0]]), port=str(ip_df.loc[0, ip_df.columns[1]]), first=True)
 
+            print '"collect_text" message: {}'.format(collected)
             if collected != "ip expired":
                 """If the ip still works than advance the counter"""
                 counter +=1
