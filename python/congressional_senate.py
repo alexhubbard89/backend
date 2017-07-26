@@ -206,7 +206,17 @@ class Congressional_report_collector(object):
             r = s.get(url)
             page = BeautifulSoup(r.content, 'lxml')
 
-            try:
+            print r.status_code
+
+            if r.status_code == 404:
+                date = pd.to_datetime("{}-{}-{}".format("{}".format(year).zfill(4),
+                      "{}".format(month).zfill(2), 
+                      "{}".format(day).zfill(2)))
+                self.record_df = pd.DataFrame(data=[[date, None, None, None, chamber.lower()]], 
+                                  columns=['date', 'url', 'text', 'subject', 'chamber'])
+                ## was data found?
+                return False
+            elif r.status_code == 200:
                 body = page.find("tbody")
                 subjects_raw = body.findAll('tr')
 
@@ -215,14 +225,9 @@ class Congressional_report_collector(object):
                     self.links.append('https://www.congress.gov' + subjects_raw[i].find('a').get('href'))
                 ## was data found?
                 return True
-            except AttributeError:
-                date = pd.to_datetime("{}-{}-{}".format("{}".format(year).zfill(4),
-                      "{}".format(month).zfill(2), 
-                      "{}".format(day).zfill(2)))
-                self.record_df = pd.DataFrame(data=[[date, None, None, None, chamber.lower()]], 
-                                  columns=['date', 'url', 'text', 'subject', 'chamber'])
-                ## was data found?
-                return False
+            else:
+                print page
+                return "ip expired"
         except:
             return "ip expired"
     
@@ -349,7 +354,8 @@ class Congressional_report_collector(object):
 
 print "collet list of dates"
 
-for year_init in range(1997, 2017):
+# for year_init in range(1997, 2017):
+for year_init in range(1997, 1998):
     print "make date list for {}".format(year_init)
     date_list = []
     for year in range(year_init, year_init+1):
@@ -363,7 +369,7 @@ for year_init in range(1997, 2017):
 
     ## For testing
     # date_list = [pd.to_datetime("1999-07-02"), pd.to_datetime("2011-07-18"), pd.to_datetime("2004-05-07"), pd.to_datetime("2008-03-18"), pd.to_datetime("2015-10-13")]
-    
+
     print date_list
                 
     print 'find initial ip'
