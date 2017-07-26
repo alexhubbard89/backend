@@ -206,23 +206,23 @@ class Congressional_report_collector(object):
         r = s.get(url)
         page = BeautifulSoup(r.content, 'lxml')
 
-        # try:
-        body = page.find("tbody")
-        subjects_raw = body.findAll('tr')
+        try:
+            body = page.find("tbody")
+            subjects_raw = body.findAll('tr')
 
-        for i in range(0, len(subjects_raw)):
-            self.subjects.append('. '.join(unidecode(subjects_raw[i].text).split('. ')[1:]).split(' |')[0])
-            self.links.append('https://www.congress.gov' + subjects_raw[i].find('a').get('href'))
-        ## was data found?
-        return True
-            # except:
-            #     ## was data found?
-            #     date = pd.to_datetime("{}-{}-{}".format("{}".format(year).zfill(4),
-            #           "{}".format(month).zfill(2), 
-            #           "{}".format(day).zfill(2)))
-            #     self.record_df = pd.DataFrame(data=[[date, None, None, None, chamber.lower()]], 
-            #                       columns=['date', 'url', 'text', 'subject', 'chamber'])
-            #     return False
+            for i in range(0, len(subjects_raw)):
+                self.subjects.append('. '.join(unidecode(subjects_raw[i].text).split('. ')[1:]).split(' |')[0])
+                self.links.append('https://www.congress.gov' + subjects_raw[i].find('a').get('href'))
+            ## was data found?
+            return True
+        except AttributeError:
+            date = pd.to_datetime("{}-{}-{}".format("{}".format(year).zfill(4),
+                  "{}".format(month).zfill(2), 
+                  "{}".format(day).zfill(2)))
+            self.record_df = pd.DataFrame(data=[[date, None, None, None, chamber.lower()]], 
+                              columns=['date', 'url', 'text', 'subject', 'chamber'])
+            ## was data found?
+            return False
         # except:
         #     return "ip expired"
     
@@ -271,8 +271,8 @@ class Congressional_report_collector(object):
         #     except:
         #         df = pd.DataFrame(data=[[date, self.links[index], "NO TEXT FOUND", self.subjects[index], chamber.lower()]], 
         #                           columns=['date', 'url', 'text', 'subject', 'chamber'])
-        #     self.record_df = self.record_df.append(df).reset_index(drop=True)
-        #     return True
+        self.record_df = self.record_df.append(df).reset_index(drop=True)
+        return True
         # except:
         #     return "ip expired"
         
@@ -358,7 +358,7 @@ print "collet list of dates"
 #             ## Convert to date time when saving to array
 #             date_list.append(pd.to_datetime(search_date))
 
-date_list = [pd.to_datetime("2011-07-18"), pd.to_datetime("2004-05-07"), pd.to_datetime("2008-03-18"), pd.to_datetime("2015-10-13")]
+date_list = [pd.to_datetime("1999-07-02"), pd.to_datetime("2011-07-18"), pd.to_datetime("2004-05-07"), pd.to_datetime("2008-03-18"), pd.to_datetime("2015-10-13")]
 
 ## Dont need the whole this for testing
 # date_list = list(pd.DataFrame(pd.to_datetime(date_list)).head(20)[0])
