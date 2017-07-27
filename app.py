@@ -12,6 +12,7 @@ import json
 import logging
 import imp
 tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
+reports_tools = imp.load_source('module', './python/reports_tools.py')
 
 app = Flask(__name__)
 CORS(app)
@@ -493,6 +494,24 @@ def rep_beliefs():
     except:
         ## If returns no data
         return jsonify(results=False)
+
+@app.route("/to_sql", methods=["POST"])
+def to_sql_api():
+    api_to_sql = reports_tools.Congressional_report_collector()
+
+    
+    json_dict = request.get_json()
+    api_to_sql.record_df = pd.DataFrame(json_dict['df'])
+    api_to_sql.record_df['date'] = pd.to_datetime(api_to_sql.record_df['date'])
+    chamber = json_dict['chamber']
+    
+
+
+    data = {'df': api_to_sql.record_df.to_dict(orient='records'), 'chamber': chamber}
+    print 'put to sql'
+    reports_tools.Congressional_report_collector.record_to_sql(api_to_sql, "congressional_record_{}".format(chamber), uid=['index'])
+    return 'ALL GOOD!'
+
 
 if __name__ == '__main__':
     ## app.run is to run with flask
