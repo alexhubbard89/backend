@@ -74,7 +74,8 @@ class Ip_Spoofer(object):
 
         self.proxy_df = proxy_df.head(50)
 
-    def check_ip(self, ip, port):
+    @staticmethod
+    def check_ip(ip, port):
         s = requests.session()
         proxies = {
           'http': '{}:{}'.format(ip, port),
@@ -105,7 +106,7 @@ class Ip_Spoofer(object):
             rand_num = np.random.choice(indexes)
 
             x = pd.DataFrame([spoof.proxy_df.loc[rand_num, spoof.proxy_df.columns[:2]]]).reset_index(drop=True)
-            good_ip = check_ip(str(x.loc[0, x.columns[0]]), str(x.loc[0, x.columns[1]]))
+            good_ip = Ip_Spoofer.check_ip(str(x.loc[0, x.columns[0]]), str(x.loc[0, x.columns[1]]))
             if good_ip == True:
                 indexes = list(set(indexes) - set([rand_num]))
                 return x
