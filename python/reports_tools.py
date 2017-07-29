@@ -467,7 +467,10 @@ class Congressional_report_collector(object):
         ## Set obejct and clean for each subject
         test_cleaning = Congressional_report_collector()
         for i in df.index:
-            test_cleaning.record_df = test_cleaning.record_df.append(Congressional_report_collector.clean_text(test_cleaning, df, i, chamber)).reset_index(drop=True)
+            try:
+                test_cleaning.record_df = test_cleaning.record_df.append(Congressional_report_collector.clean_text(test_cleaning, df, i, chamber)).reset_index(drop=True)
+            except:
+                "Getting a weird ass error: 'error: cannot refer to open group'"
 
         ## Add date column
         test_cleaning.record_df.loc[:, 'date'] = date
