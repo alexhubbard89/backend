@@ -220,17 +220,12 @@ class user_info(object):
             'submit': 'FIND YOUR REP',
         }
 
-        print form_data
         response = requests.request(method='POST', url=url, data=form_data, headers=headers)
-        print response.content
 
         page = BeautifulSoup(response.content, 'lxml')
         your_rep = page.find('div', class_='relatedContent')
         district = int(str(your_rep).split('src="/zip/pictures/{}'.format(self.state_short.lower()))[1].split('_')[0])
         return district
-
-        # district = str(response.content.split('src="/zip/pictures/{}'.format(self.state_short.lower()))[1].split('_')[0])
-        # return int(district)
     
     def search_email(self):
         connection = open_connection()

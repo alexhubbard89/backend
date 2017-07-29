@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
+import json
 
 def free_proxy_list_net():
 
@@ -199,11 +200,12 @@ class Congressional_report_collector(object):
         }
         s.proxies.update(proxies)    
         a = requests.adapters.HTTPAdapter(max_retries=5)
-        s.mount('http://', a)
+        s.mount('https://', a)
         headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
         s.headers.update(headers)
+
         try:
-            r = s.get(url)
+            r = s.get(url)#, data=json.dumps(payload), headers=headers)
             page = BeautifulSoup(r.content, 'lxml')
 
             print r.status_code
@@ -217,16 +219,27 @@ class Congressional_report_collector(object):
                 ## was data found?
                 return False
             elif r.status_code == 200:
-                body = page.find("tbody")
-                subjects_raw = body.findAll('tr')
+                try:
+                    body = page.find("tbody")
+                    subjects_raw = body.findAll('tr')
 
-                for i in range(0, len(subjects_raw)):
-                    self.subjects.append('. '.join(unidecode(subjects_raw[i].text).split('. ')[1:]).split(' |')[0])
-                    self.links.append('https://www.congress.gov' + subjects_raw[i].find('a').get('href'))
-                ## was data found?
-                return True
+                    for i in range(0, len(subjects_raw)):
+                        self.subjects.append('. '.join(unidecode(subjects_raw[i].text).split('. ')[1:]).split(' |')[0])
+                        self.links.append('https://www.congress.gov' + subjects_raw[i].find('a').get('href'))
+                    ## was data found?
+                    return True
+                except AttributeError:
+                    ## sometimes it gives a 200 when no data is there
+                    date = pd.to_datetime("{}-{}-{}".format("{}".format(year).zfill(4),
+                          "{}".format(month).zfill(2), 
+                          "{}".format(day).zfill(2)))
+                    self.record_df = pd.DataFrame(data=[[date, None, None, None, chamber.lower()]], 
+                                      columns=['date', 'url', 'text', 'subject', 'chamber'])
+                    ## was data found?
+                    return False
+
             else:
-                print page
+                print page.prettify()
                 return "ip expired"
         except:
             return "ip expired"
@@ -241,9 +254,10 @@ class Congressional_report_collector(object):
         }
         s.proxies.update(proxies)    
         a = requests.adapters.HTTPAdapter(max_retries=5)
-        s.mount('http://', a)
+        s.mount('https://', a)
         headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
         s.headers.update(headers)
+
         try:
             r = s.get(url)
         
@@ -355,7 +369,7 @@ class Congressional_report_collector(object):
 print "collet list of dates"
 
 # for year_init in range(1997, 2017):
-for year_init in range(1997, 1998):
+for year_init in range(2016, 1998, -1):
     print "make date list for {}".format(year_init)
     date_list = []
     for year in range(year_init, year_init+1):
@@ -367,8 +381,6 @@ for year_init in range(1997, 1998):
                 ## Convert to date time when saving to array
                 date_list.append(pd.to_datetime(search_date))
 
-    ## For testing
-    # date_list = [pd.to_datetime("1999-07-02"), pd.to_datetime("2011-07-18"), pd.to_datetime("2004-05-07"), pd.to_datetime("2008-03-18"), pd.to_datetime("2015-10-13")]
 
     print date_list
                 
@@ -386,28 +398,23 @@ for year_init in range(1997, 1998):
         print date
         print '"collect_subjets_and_links" message: {}'.format(collection)
         if collection != "ip expired":
-            """If collection happened remove from date list
-            do the rest of the collection aaannndd save to sql"""
-            date_list = list(set(date_list) - set([date]))
-            
             counter = 0
             while counter < len(test_collection.subjects):
                 print counter
                 print test_collection.subjects[counter]
-
                 if counter > 0:
                     collected = Congressional_report_collector.collect_text(test_collection, index=counter, date=date, chamber=chamber, ip=str(ip_df.loc[0, ip_df.columns[0]]), port=str(ip_df.loc[0, ip_df.columns[1]]))
                 elif counter == 0:
                     collected = Congressional_report_collector.collect_text(test_collection, index=counter, date=date, chamber=chamber, ip=str(ip_df.loc[0, ip_df.columns[0]]), port=str(ip_df.loc[0, ip_df.columns[1]]), first=True)
 
                 print '"collect_text" message: {}'.format(collected)
-                if collected != "ip expired":
-                    """If the ip still works than advance the counter"""
-                    counter +=1
-                    
-                else:
+                if collected == "ip expired":
                     print "find new ip"
                     ip_df = random_ip()
+                    print ip_df
+                else:
+                    """If the ip still works than advance the counter"""
+                    counter +=1
                 
             print "set index"
             ## index for sql prep
@@ -416,8 +423,40 @@ for year_init in range(1997, 1998):
 
             print "store data"
             ## Save data
-            Congressional_report_collector.record_to_sql(test_collection, "congressional_record_{}".format(chamber), uid=['index'])
+            # Congressional_report_collector.record_to_sql(test_collection, "congressional_record_{}".format(chamber), uid=['index'])
+
+            went_to_sql = False
+            while went_to_sql == False:
+
+                ## Convert date for PAI
+                test_collection.record_df['date'] = test_collection.record_df['date'].astype(str)
+                ## Send data to API
+                s = requests.Session()
+                s.auth = ('user', 'pass')
+                headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36',
+                }
+                url_ = "https://heroku-postgres-7720c2d1.herokuapp.com/to_sql"
+                form_data = {
+                    'df': test_collection.record_df.to_dict(orient='records'),
+                    'chamber': 'senate'
+                }
+                headers = {'Content-Type' : 'application/json'}
+                response = requests.post(url=url_, data=json.dumps(form_data), headers=headers)
+
+                if response.content == "ALL GOOD!":
+                    print response.content
+                    went_to_sql = True
+
+
+
+
+            """If collection happened remove from date list
+            do the rest of the collection aaannndd save to sql"""
+            date_list = list(set(date_list) - set([date]))
+            date_list.sort()
             
         else:
             print "find new ip"
             ip_df = random_ip()
+            print ip_df
