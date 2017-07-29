@@ -212,19 +212,25 @@ class user_info(object):
         headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36',
         }
-        url = 'http://ziplook.house.gov/htbin/findrep?ADDRLK'
+        url = 'https://ziplook.house.gov/htbin/findrep?ADDRLK'
         form_data = {
             'street': self.street,
             'city': self.city,
             'state': state,
             'submit': 'FIND YOUR REP',
         }
-        
+
         print form_data
         response = requests.request(method='POST', url=url, data=form_data, headers=headers)
         print response.content
-        district = str(response.content.split('src="/zip/pictures/{}'.format(self.state_short.lower()))[1].split('_')[0])
-        return int(district)
+
+        page = BeautifulSoup(response.content, 'lxml')
+        your_rep = page.find('div', class_='relatedContent')
+        district = int(str(your_rep).split('src="/zip/pictures/{}'.format(user.state_short.lower()))[1].split('_')[0])
+        return district
+
+        # district = str(response.content.split('src="/zip/pictures/{}'.format(self.state_short.lower()))[1].split('_')[0])
+        # return int(district)
     
     def search_email(self):
         connection = open_connection()
