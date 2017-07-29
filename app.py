@@ -152,7 +152,13 @@ def change_creds():
 
     ## Pass all params 
     message = tally_toolkit.user_info.change_setting(param, user_id, password, street, zip_code)
-    return jsonify(results=message)
+    if message == True:
+        user = tally_toolkit.user_info()
+        user.user_id = user_id
+        user_data = tally_toolkit.user_info.get_user_data(user)
+        return jsonify(user_data.to_dict(orient='records')[0])
+    else:
+        return jsonify(results=message)
 
 
 
