@@ -226,7 +226,7 @@ class user_info(object):
 
         page = BeautifulSoup(response.content, 'lxml')
         your_rep = page.find('div', class_='relatedContent')
-        district = int(str(your_rep).split('src="/zip/pictures/{}'.format(user.state_short.lower()))[1].split('_')[0])
+        district = int(str(your_rep).split('src="/zip/pictures/{}'.format(self.state_short.lower()))[1].split('_')[0])
         return district
 
         # district = str(response.content.split('src="/zip/pictures/{}'.format(self.state_short.lower()))[1].split('_')[0])
