@@ -1679,31 +1679,9 @@ class collect_legislation(object):
         ## Master dasta set to save to
         master_df = pd.DataFrame()
 
-        ## Get prxoy IP address
-        spoof_df = Ip_Spoofer.random_ip()
-
-        ## Request with proxy IP address
-        s = requests.session()
-        a = requests.adapters.HTTPAdapter(max_retries=5)
-        s.mount('http://', a)
-        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
-        s.headers.update(headers)
-        url = 'https://www.congress.gov/search?q=%7B"congress":"{}","source":"legislation"%7D&searchResultViewType=expanded&pageSize=250&page=1'.format(self.congress_search)
-        print url
-        r = s.get(url)
-        print r.status_code
-        page = BeautifulSoup(r.content, 'lxml')
-
-        max_page = int(page.find('div', 
-              class_='nav-pag-top').find(
-        'div', class_='pagination').find_all(
-        'a')[-1].get('href').split('page=')[1])
-
-        for i in range(1, max_page+1):
-            page_df = pd.DataFrame()
-            if i != 1:
-                ## Request next page
-                url = 'https://www.congress.gov/search?q=%7B"congress":"{}","source":"legislation"%7D&searchResultViewType=expanded&pageSize=250&page={}'.format(self.congress_search, i) 
+        data_collected = False
+        while data_collected == False:
+            try:
                 ## Get prxoy IP address
                 spoof_df = Ip_Spoofer.random_ip()
 
@@ -1711,12 +1689,48 @@ class collect_legislation(object):
                 s = requests.session()
                 a = requests.adapters.HTTPAdapter(max_retries=5)
                 s.mount('http://', a)
+                headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
                 s.headers.update(headers)
+                url = 'https://www.congress.gov/search?q=%7B"congress":"{}","source":"legislation"%7D&searchResultViewType=expanded&pageSize=250&page=1'.format(self.congress_search)
                 print url
                 r = s.get(url)
                 print r.status_code
-                
                 page = BeautifulSoup(r.content, 'lxml')
+
+                max_page = int(page.find('div', 
+                      class_='nav-pag-top').find(
+                'div', class_='pagination').find_all(
+                'a')[-1].get('href').split('page=')[1])
+
+                data_collected = True
+            except:
+                data_collected = False
+
+        for i in range(1, max_page+1):
+            page_df = pd.DataFrame()
+            if i != 1:
+
+                data_collected = False
+                while data_collected == False:
+                    try:
+                        ## Request next page
+                        url = 'https://www.congress.gov/search?q=%7B"congress":"{}","source":"legislation"%7D&searchResultViewType=expanded&pageSize=250&page={}'.format(self.congress_search, i) 
+                        ## Get prxoy IP address
+                        spoof_df = Ip_Spoofer.random_ip()
+
+                        ## Request with proxy IP address
+                        s = requests.session()
+                        a = requests.adapters.HTTPAdapter(max_retries=5)
+                        s.mount('http://', a)
+                        s.headers.update(headers)
+                        print url
+                        r = s.get(url)
+                        print r.status_code
+                        
+                        page = BeautifulSoup(r.content, 'lxml')
+                        data_collected = True
+                    except:
+                        data_collected = False
 
             ## Get legislation container
             page_list = page.find_all('ol', class_='basic-search-results-lists expanded-view')[0]
