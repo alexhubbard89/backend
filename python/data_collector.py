@@ -72,17 +72,17 @@ This is necessary for scoring.
 congress_data.current_congress was found when I got current congress
 data. The attribute still exists so use it.
 """
-try:
-    leg_collection = tally_toolkit.collect_legislation()
-    leg_collection.congress_search = tally_toolkit.current_congress_num()
-    tally_toolkit.collect_legislation.legislation_info_by_congress(leg_collection)
-    tally_toolkit.collect_legislation.legislation_to_sql(leg_collection)
-    good_collection += """\n\tLegislation collected for {} congress - New data: {}, Update data: {}""".format(
-        leg_collection.congress_search,
-        leg_collection.new_data,
-        leg_collection.updated_data)
-except:
-    bad_collection += """\n\tLegislation collector"""
+# try:
+leg_collection = tally_toolkit.collect_legislation()
+leg_collection.congress_search = tally_toolkit.current_congress_num()
+tally_toolkit.collect_legislation.legislation_info_by_congress(leg_collection)
+tally_toolkit.collect_legislation.legislation_to_sql(leg_collection)
+good_collection += """\n\tLegislation collected for {} congress - New data: {}, Update data: {}""".format(
+    leg_collection.congress_search,
+    leg_collection.new_data,
+    leg_collection.updated_data)
+# except:
+#     bad_collection += """\n\tLegislation collector"""
 
 try:
     leg_collection = tally_toolkit.collect_legislation()

@@ -1696,6 +1696,7 @@ class collect_legislation(object):
                 r = s.get(url)
                 print r.status_code
                 page = BeautifulSoup(r.content, 'lxml')
+                print page
 
                 max_page = int(page.find('div', 
                       class_='nav-pag-top').find(
