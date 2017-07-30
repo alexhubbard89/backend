@@ -5649,6 +5649,11 @@ class Congressional_report_collector(object):
         self.section_title = None
         self.section = None
 
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import numpy as np
+
 class Ip_Spoofer(object):
     """
     This will be used to find a random IP and Port to proxy to.
@@ -5719,7 +5724,7 @@ class Ip_Spoofer(object):
                 proxy_df.loc[length, cols[i]] = row[i].text
 
         self.proxy_df = proxy_df.head(50)
-
+        
     @staticmethod
     def check_ip(ip, port):
         s = requests.session()
@@ -5734,6 +5739,8 @@ class Ip_Spoofer(object):
         try:
             r = s.get('http://ip.42.pl/raw')
             if r.status_code == 200:
+                print r.content
+                print 'given: {}'.format(ip)
                 return True
             else:
                 return False
