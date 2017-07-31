@@ -472,11 +472,14 @@ class Congressional_report_collector(object):
             except:
                 "Getting a weird ass error: 'error: cannot refer to open group'"
 
-        ## Add date column
-        test_cleaning.record_df.loc[:, 'date'] = date
+        ## If no speaking data found stop
+        if len(test_cleaning.record_df) > 0:
 
-        ## Add to sql
-        Congressional_report_collector.record_to_sql(test_cleaning, 'congressional_record_transcripts', ['index', 'chamber'])
+            ## Add date column
+            test_cleaning.record_df.loc[:, 'date'] = date
+
+            ## Add to sql
+            Congressional_report_collector.record_to_sql(test_cleaning, 'congressional_record_transcripts', ['index', 'chamber'])
 
     @staticmethod 
     def clean_missing_text(chamber):
