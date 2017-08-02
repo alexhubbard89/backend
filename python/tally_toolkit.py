@@ -97,6 +97,25 @@ class user_info(object):
     street, zip_code, and user_df
     """
 
+    @staticmethod
+    def sanitize_address(zip_code, address):
+        """
+        We need to prevent users from putting in their city and state. 
+        For that I'm just going to find city and state from zipcode and
+        try to remove it.
+        """
+        search = ZipcodeSearchEngine()
+        zipcode = search.by_zipcode(str(zip_code))
+        city = str(zipcode['City'].lower().title()).lower()
+        state_short = str(zipcode['State']).lower()
+        state_long = str(us.states.lookup(state_short)).lower()
+        
+        address = address.lower().replace(city, '').replace(state_short, '').replace(state_long, '').replace('11238', '')
+        for i in range(10):
+            address = address.replace(',', '').replace('  ', ' ')
+            
+        return address.strip(' ')
+
     def check_address(self):
         street = self.street.lower().title().replace(' ', '+')
         url = "https://maps.googleapis.com/maps/api/geocode/json?address={},+{}".format(street, str(self.zip_code))
