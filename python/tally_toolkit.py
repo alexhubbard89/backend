@@ -1517,10 +1517,22 @@ class sponsorship_collection(object):
         and or cosponsorship exists then
         return None.
         """
-        
-        ## Create url path
-        r = requests.get('{}/cosponsors'.format(self.search_url))
-        page = BeautifulSoup(r.content, "lxml")
+
+
+        ## Get prxoy IP address
+        spoof_df = Ip_Spoofer.random_ip()
+
+        ## Request with proxy IP address
+        s = requests.session()
+        a = requests.adapters.HTTPAdapter(max_retries=5)
+        s.mount('http://', a)
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+        s.headers.update(headers)
+        url = '{}/cosponsors'.format(self.search_url)
+        r = s.get(url)
+        page = BeautifulSoup(r.content, 'lxml')
+
+
         # try:
         tr_page = page.find('div', class_='overview_wrapper bill').find_all('tr')
         for i in range(len(tr_page)):
