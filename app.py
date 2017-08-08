@@ -111,6 +111,7 @@ def create_user():
     """Check if something bad was returned. If not keep moving."""
 
     tally_toolkit.user_info.check_address(user)
+    user.address_check = True
     if user.address_check == "Bad address":
         return jsonify(results="Bad address")
     elif user.address_check == "Bad request":
