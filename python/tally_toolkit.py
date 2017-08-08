@@ -122,6 +122,7 @@ class user_info(object):
         r = requests.get(url)
         if r.status_code == 200:
             try:
+                print r.json()
                 r.json()['results'][0]['partial_match']
                 self.address_check = "Bad address"
             except:
