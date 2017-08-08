@@ -160,7 +160,10 @@ class user_info(object):
         self.state_short = df.loc[0, 'state_short']
         self.state_long = df.loc[0, 'state_long']
 
-        df.loc[0, 'district'] = user_info.get_district_from_address(self)
+        try:
+            df.loc[0, 'district'] = user_info.get_district_from_address(self)
+        except IndexError:
+            df.loc[0, 'district'] = user_info.rep_from_zip_extention(self)
         df.loc[0, 'party'] = self.party
 
         return df
@@ -207,7 +210,7 @@ class user_info(object):
             last_name=self.user_df.loc[0, 'last_name'], 
             gender=self.user_df.loc[0, 'gender'], 
             dob=self.user_df.loc[0, 'dob'], 
-            district=int(self.user_df.loc[0, 'district']),
+            district=self.user_df.loc[0, 'district'],
             party=self.user_df.loc[0, 'party'])
 
 
@@ -245,6 +248,51 @@ class user_info(object):
         your_rep = page.find('div', class_='relatedContent')
         district = int(str(your_rep).split('src="/zip/pictures/{}'.format(self.state_short.lower()))[1].split('_')[0])
         return district
+
+    def rep_from_zip_extention(self):
+        s = requests.session()
+        a = requests.adapters.HTTPAdapter(max_retries=5)
+        s.mount('http://', a)
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+        s.headers.update(headers)
+        url = 'https://maps.googleapis.com/maps/api/geocode/json?address={}+,{}'.format(self.street, self.zip_code)
+        r = s.get(url)
+        if r.status_code == 200:
+            try:
+                sdfljs
+                df = pd.DataFrame(r.json()['results'][0]['address_components'])
+                df['suffix'] = df.loc[:,'types'].apply(lambda x: 'suffix' in x[0])
+                df = df.loc[df['suffix'] == True].reset_index(drop=True)
+
+                extention = df.loc[0, 'long_name']
+                return user_info.zip_for_dist(self, extention)
+            except:
+                "could not find extention"
+                return user_info.zip_for_dist(self)
+        else:
+            return user_info.zip_for_dist(self)
+
+    def zip_for_dist(self, extention=None):
+        
+        s = requests.session()
+        a = requests.adapters.HTTPAdapter(max_retries=5)
+        s.mount('http://', a)
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+        s.headers.update(headers)
+        if extention != None:
+            url = 'https://ziplook.house.gov/htbin/findrep?ZIP={}-{}'.format(self.zip_code, extention)
+        else:
+            url = 'https://ziplook.house.gov/htbin/findrep?ZIP={}'.format(self.zip_code)
+        r = s.get(url)
+        page = BeautifulSoup(r.content, 'lxml')
+        possible_reps = page.findAll('div', id='PossibleReps')[0]
+
+        dist = ''
+        for rep in possible_reps.findAll('div'):
+            dist += ' OR {}'.format(int(str(rep).split('/zip/pictures/')[1].split('_')[0].replace(self.state_short.lower(), '')))
+        return dist[4:]
+
+
     
     def search_email(self):
         connection = open_connection()
@@ -291,15 +339,23 @@ class user_info(object):
     def get_congress_bio(self):
         ## Search for user's reps in current year
         cong_num = current_congress_num()
+        self.district = str(self.district)
+        dist_search = ''
+        for dist in self.district.split(' OR '):
+            dist_search += " OR district = '{}'".format(dist)
+        dist_search = dist_search[4:]
+
+        print dist_search
+
 
         return pd.read_sql_query("""
-                SELECT * FROM(
+                SELECT * FROM (
                 SELECT * 
                 FROM congress_bio 
                 WHERE state = '{}' 
                 AND served_until = 'Present'
                 AND ((chamber = 'senate') 
-                OR (chamber = 'house' and district = {})))
+                OR (chamber = 'house' and ({}))))
                 AS rep_bio
                 LEFT JOIN (
                 SELECT bioguide_id as b_id,
@@ -309,7 +365,7 @@ class user_info(object):
                 WHERE congress = {}
                 ) AS grades 
                 ON grades.b_id = rep_bio.bioguide_id
-                ;""".format(self.state_long, self.district, cong_num), open_connection()).drop(['b_id'], 1)
+                ;""".format(self.state_long, dist_search, cong_num), open_connection()).drop(['b_id'], 1)
 
 
         user_results = pd.read_sql_query(sql_command, open_connection())
@@ -524,7 +580,10 @@ class user_info(object):
                     user_params.city = str(zipcode['City'].lower().title())
                     user_params.state_short = str(zipcode['State'])
                     user_params.state_long = str(us.states.lookup(str(user_params.state_short)))
-                    district = user_info.get_district_from_address(user_params)
+                    try:
+                        district = user_info.get_district_from_address(self)
+                    except IndexError:
+                        district = user_info.rep_from_zip_extention(self)
 
                     ## Update
                     connection = open_connection()
