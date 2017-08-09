@@ -99,7 +99,7 @@ def create_user():
 
     user.gender = "None"
     user.dob = '1970-01-01'
-    user.street = tally_toolkit.user_info.sanitize_address(user.zip_code, user.street)
+    # user.street = tally_toolkit.user_info.sanitize_address(user.zip_code, user.street)
 
     ## DOB
     try: 
@@ -141,7 +141,7 @@ def change_creds():
             password = tally_toolkit.sanitize(data['password'])
         elif param.lower() == 'address':
             zip_code = data['zip_code']
-            street = tally_toolkit.user_info.sanitize_address(zip_code, data['street'])
+            # street = tally_toolkit.user_info.sanitize_address(zip_code, data['street'])
     except:
         print 'trying second way'
         param = request.form['param']
@@ -150,7 +150,7 @@ def change_creds():
             password = tally_toolkit.sanitize(request.form['password'])
         elif param.lower() == 'address':
             zip_code = request.form['zip_code']
-            street = tally_toolkit.user_info.sanitize_address(zip_code, request.form['street'])
+            # street = tally_toolkit.user_info.sanitize_address(zip_code, request.form['street'])
 
     ## Pass all params 
     message = tally_toolkit.user_info.change_setting(param, user_id, password, street, zip_code)
