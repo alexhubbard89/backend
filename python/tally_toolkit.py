@@ -332,7 +332,7 @@ class user_info(object):
                 WHERE state = '{}' 
                 AND served_until = 'Present'
                 AND ((chamber = 'senate') 
-                OR (chamber = 'house' and {})))
+                OR (chamber = 'house' and district = {})))
                 AS rep_bio
                 LEFT JOIN (
                 SELECT bioguide_id as b_id,
