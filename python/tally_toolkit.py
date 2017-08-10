@@ -97,32 +97,12 @@ class user_info(object):
     street, zip_code, and user_df
     """
 
-    @staticmethod
-    def sanitize_address(zip_code, address):
-        """
-        We need to prevent users from putting in their city and state. 
-        For that I'm just going to find city and state from zipcode and
-        try to remove it.
-        """
-        search = ZipcodeSearchEngine()
-        zipcode = search.by_zipcode(str(zip_code))
-        city = str(zipcode['City'].lower().title()).lower()
-        state_short = str(zipcode['State']).lower()
-        state_long = str(us.states.lookup(state_short)).lower()
-        
-        address = address.lower().replace(city, '').replace(state_short, '').replace(state_long, '').replace('11238', '')
-        for i in range(10):
-            address = address.replace(',', '').replace('  ', ' ')
-            
-        return address.strip(' ')
-
     def check_address(self):
         street = self.street.lower().title().replace(' ', '+')
         url = "https://maps.googleapis.com/maps/api/geocode/json?address={},+{}".format(street, str(self.zip_code))
         r = requests.get(url)
         if r.status_code == 200:
             try:
-                print r.json()
                 r.json()['results'][0]['partial_match']
                 self.address_check = "Bad address"
             except:
@@ -196,10 +176,11 @@ class user_info(object):
             gender,
             dob,
             district,
-            party)
+            party,
+            address_fail)
             VALUES ('{email}', '{password}', '{street}', '{zip_code}', '{city}', '{state_short}',
                     '{state_long}', '{first_name}', '{last_name}', 
-                    '{gender}', '{dob}', '{district}', '{party}');"""
+                    '{gender}', '{dob}', '{district}', '{party}', '{address_fail}');"""
 
 
         sql_command = format_str.format(email=self.user_df.loc[0, 'email'], 
@@ -211,8 +192,9 @@ class user_info(object):
             last_name=self.user_df.loc[0, 'last_name'], 
             gender=self.user_df.loc[0, 'gender'], 
             dob=self.user_df.loc[0, 'dob'], 
-            district=self.user_df.loc[0, 'district'],
-            party=self.user_df.loc[0, 'party'])
+            district=int(self.user_df.loc[0, 'district']),
+            party=self.user_df.loc[0, 'party'],
+            address_fail=self.address_fail)
 
 
         try:
@@ -260,7 +242,6 @@ class user_info(object):
         r = s.get(url)
         if r.status_code == 200:
             try:
-                sdfljs
                 df = pd.DataFrame(r.json()['results'][0]['address_components'])
                 df['suffix'] = df.loc[:,'types'].apply(lambda x: 'suffix' in x[0])
                 df = df.loc[df['suffix'] == True].reset_index(drop=True)
@@ -269,6 +250,7 @@ class user_info(object):
                 return user_info.zip_for_dist(self, extention)
             except:
                 "could not find extention"
+                self.address_fail = True
                 return user_info.zip_for_dist(self)
         else:
             return user_info.zip_for_dist(self)
@@ -289,9 +271,11 @@ class user_info(object):
         possible_reps = page.findAll('div', id='PossibleReps')[0]
 
         dist = ''
-        for rep in possible_reps.findAll('div'):
-            dist += ' OR {}'.format(int(str(rep).split('/zip/pictures/')[1].split('_')[0].replace(self.state_short.lower(), '')))
-        return dist[4:]
+        possible_reps = possible_reps.find('div')
+        dist = int(str(possible_reps).split('/zip/pictures/')[1].split('_')[0].replace(self.state_short.lower(), ''))
+        print dist
+
+        return dist
 
 
     
@@ -340,14 +324,6 @@ class user_info(object):
     def get_congress_bio(self):
         ## Search for user's reps in current year
         cong_num = current_congress_num()
-        self.district = str(self.district)
-        dist_search = ''
-        for dist in self.district.split(' OR '):
-            dist_search += " OR district = '{}'".format(dist)
-        dist_search = dist_search[4:]
-
-        print dist_search
-
 
         return pd.read_sql_query("""
                 SELECT * FROM (
@@ -356,7 +332,7 @@ class user_info(object):
                 WHERE state = '{}' 
                 AND served_until = 'Present'
                 AND ((chamber = 'senate') 
-                OR (chamber = 'house' and ({}))))
+                OR (chamber = 'house' and {})))
                 AS rep_bio
                 LEFT JOIN (
                 SELECT bioguide_id as b_id,
@@ -366,7 +342,7 @@ class user_info(object):
                 WHERE congress = {}
                 ) AS grades 
                 ON grades.b_id = rep_bio.bioguide_id
-                ;""".format(self.state_long, dist_search, cong_num), open_connection()).drop(['b_id'], 1)
+                ;""".format(self.state_long, self.district, cong_num), open_connection()).drop(['b_id'], 1)
 
 
         user_results = pd.read_sql_query(sql_command, open_connection())
@@ -646,6 +622,7 @@ class user_info(object):
         self.city = city
         self.state_short = state_short
         self.user_id = user_id
+        self.address_fail = False
 
 
 class vote_collector(object):
