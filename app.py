@@ -116,7 +116,11 @@ def create_user():
     elif user.address_check == "Bad request":
         return jsonify(results="Bad request")
 
-    user.user_df = tally_toolkit.user_info.create_user_params(user)
+    try:
+        user.user_df = tally_toolkit.user_info.create_user_params(user)
+    except:
+        "This would only break the address and zip are bad."
+        return jsonify(results="Bad address")
     user_made = tally_toolkit.user_info.user_info_to_sql(user)
 
     # if user_made == True:
