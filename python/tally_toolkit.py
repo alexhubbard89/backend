@@ -560,7 +560,10 @@ class user_info(object):
                     try:
                         district = user_info.get_district_from_address(self)
                     except IndexError:
-                        district = user_info.rep_from_zip_extention(self)
+                        try:
+                            district = user_info.rep_from_zip_extention(self)
+                        except:
+                            return "no address found"
 
                     ## Update
                     connection = open_connection()
