@@ -1564,6 +1564,12 @@ class sponsorship_collection(object):
 
         ## Request with proxy IP address
         s = requests.session()
+        ip = str(spoof_df.loc[0, spoof_df.columns[0]])
+        port = str(spoof_df.loc[0, spoof_df.columns[1]])
+        proxies = {
+          'http': '{}:{}'.format(ip, port),
+        }
+        s.proxies.update(proxies)
         a = requests.adapters.HTTPAdapter(max_retries=5)
         s.mount('http://', a)
         headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
@@ -1756,8 +1762,16 @@ class collect_legislation(object):
                 ## Get prxoy IP address
                 spoof_df = Ip_Spoofer.random_ip()
 
+                ip = str(spoof_df.loc[0, spoof_df.columns[0]])
+                port = str(spoof_df.loc[0, spoof_df.columns[1]])
+
+
                 ## Request with proxy IP address
                 s = requests.session()
+                proxies = {
+                  'http': '{}:{}'.format(ip, port),
+                }
+                s.proxies.update(proxies)    
                 a = requests.adapters.HTTPAdapter(max_retries=5)
                 s.mount('http://', a)
                 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
@@ -1789,9 +1803,15 @@ class collect_legislation(object):
                         url = 'https://www.congress.gov/search?q=%7B"congress":"{}","source":"legislation"%7D&searchResultViewType=expanded&pageSize=250&page={}'.format(self.congress_search, i) 
                         ## Get prxoy IP address
                         spoof_df = Ip_Spoofer.random_ip()
+                        ip = str(spoof_df.loc[0, spoof_df.columns[0]])
+                        port = str(spoof_df.loc[0, spoof_df.columns[1]])
 
                         ## Request with proxy IP address
                         s = requests.session()
+                        proxies = {
+                          'http': '{}:{}'.format(ip, port),
+                        }
+                        s.proxies.update(proxies)    
                         a = requests.adapters.HTTPAdapter(max_retries=5)
                         s.mount('http://', a)
                         s.headers.update(headers)
