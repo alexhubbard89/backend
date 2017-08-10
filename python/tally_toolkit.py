@@ -1549,7 +1549,7 @@ class sponsorship_collection(object):
         cong_num = pd.read_sql_query("""select max(congress) from house_vote_menu;""",open_connection())
         self.congress_search = cong_num.loc[0, 'max']
     
-    def get_sponsor_data(self):
+    def get_sponsor_data(self, bad=False):
         """
         This method is used to collect
         the sponsorship and cosponsorhip
@@ -1558,18 +1558,17 @@ class sponsorship_collection(object):
         return None.
         """
 
-
-        ## Get prxoy IP address
-        spoof_df = Ip_Spoofer.random_ip()
-
         ## Request with proxy IP address
         s = requests.session()
-        ip = str(spoof_df.loc[0, spoof_df.columns[0]])
-        port = str(spoof_df.loc[0, spoof_df.columns[1]])
-        proxies = {
-          'http': '{}:{}'.format(ip, port),
-        }
-        s.proxies.update(proxies)
+        if bad == True:
+            ## Get prxoy IP address
+            spoof_df = Ip_Spoofer.random_ip()
+            ip = str(spoof_df.loc[0, spoof_df.columns[0]])
+            port = str(spoof_df.loc[0, spoof_df.columns[1]])
+            proxies = {
+              'http': '{}:{}'.format(ip, port),
+            }
+            s.proxies.update(proxies)
         a = requests.adapters.HTTPAdapter(max_retries=5)
         s.mount('http://', a)
         headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
@@ -1721,8 +1720,11 @@ class sponsorship_collection(object):
             try:
                 master_sponsors = master_sponsors.append(sponsorship_collection.get_sponsor_data(self))
             except:
-                print 'bad url: {}'.format(self.search_url)
-                not_collect += 1
+                try:
+                    master_sponsors = master_sponsors.append(sponsorship_collection.get_sponsor_data(self), bad=True)
+                except:
+                    print 'bad url: {}'.format(self.search_url)
+                    not_collect += 1
         
         self.master_sponsors = master_sponsors.reset_index(drop=True)
         print 'To the database!'
