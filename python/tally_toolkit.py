@@ -3961,7 +3961,8 @@ class Grade_reps(object):
         
         
         return days_voted.append(days_voted_s)[['bioguide_id', 'chamber', 'participation_percent']].reset_index(drop=True)
-        
+
+
     def rank_bills_made(self):
         all_sponsored = pd.read_sql_query("""
             SELECT * FROM
@@ -3992,7 +3993,8 @@ class Grade_reps(object):
             photo_url,
             chamber
             FROM congress_bio
-            WHERE lower(state) != 'guam'
+            WHERE served_until = 'Present'
+            AND lower(state) != 'guam'
             AND lower(state) != 'puerto rico'
             AND lower(state) != 'district of columbia'
             AND lower(state) != 'virgin islands'
@@ -4010,18 +4012,29 @@ class Grade_reps(object):
         house_sponsored = all_sponsored.loc[all_sponsored['chamber'] == 'house']
         sen_sponsored = all_sponsored.loc[all_sponsored['chamber'] == 'senate']
 
-        x = house_sponsored['rep_sponsor']
-        house_sponsored.loc[:, 'sponsor_percent'] = [stats.percentileofscore(x, a, 'weak') for a in x]
-        house_sponsored.loc[:, 'sponsor_percent'] = house_sponsored.loc[:, 'sponsor_percent']/100
+        ## z-scores
+        mew = house_sponsored['rep_sponsor'].median()
+        standard_d = np.std(house_sponsored['rep_sponsor'])
+        house_sponsored.loc[:, 'z_scores'] = house_sponsored.loc[:, 'rep_sponsor'].apply(lambda x: (x - mew)/standard_d)
+            
+        ## Convert z-scores
+        house_sponsored.loc[house_sponsored['z_scores'] >= 0, 'sponsor_grade'] = house_sponsored.loc[house_sponsored['z_scores'] >= 0, 'z_scores'].apply(lambda x: 75 + (75 * ((1/3) * (x / house_sponsored['z_scores'].max()))))
+        house_sponsored.loc[house_sponsored['z_scores'] < 0, 'sponsor_grade'] = house_sponsored.loc[house_sponsored['z_scores'] < 0, 'z_scores'].apply(lambda x: 75 + (75 * ((1) * (x / house_sponsored['z_scores'].max()))))
+        
 
-        x = sen_sponsored['rep_sponsor']
-        sen_sponsored.loc[:, 'sponsor_percent'] = [stats.percentileofscore(x, a, 'weak') for a in x]
-        sen_sponsored.loc[:, 'sponsor_percent'] = sen_sponsored.loc[:, 'sponsor_percent']/100
+        ## z-scores
+        mew = sen_sponsored['rep_sponsor'].median()
+        standard_d = np.std(sen_sponsored['rep_sponsor'])
+        sen_sponsored.loc[:, 'z_scores'] = sen_sponsored.loc[:, 'rep_sponsor'].apply(lambda x: (x - mew)/standard_d)
+            
+        ## Convert z-scores
+        sen_sponsored.loc[sen_sponsored['z_scores'] >= 0, 'sponsor_grade'] = sen_sponsored.loc[sen_sponsored['z_scores'] >= 0, 'z_scores'].apply(lambda x: 75 + (75 * ((1/3) * (x / sen_sponsored['z_scores'].max()))))
+        sen_sponsored.loc[sen_sponsored['z_scores'] < 0, 'sponsor_grade'] = sen_sponsored.loc[sen_sponsored['z_scores'] < 0, 'z_scores'].apply(lambda x: 75 + (75 * ((1) * (x / sen_sponsored['z_scores'].max()))))
 
         all_sponsored = house_sponsored.append(sen_sponsored)
-        
+
         ## Reduce weight
-        all_sponsored['sponsor_percent'] = all_sponsored['sponsor_percent']*.5
+        all_sponsored['sponsor_percent'] = all_sponsored['sponsor_grade']/200
         return all_sponsored[['bioguide_id', 'rep_sponsor', 'max_sponsor', 'sponsor_percent']]
         
         
@@ -4030,7 +4043,7 @@ class Grade_reps(object):
         SELECT DISTINCT * FROM historical_leadership
         WHERE congress = {}
         ;""".format(self.congress), open_connection())
-        
+
     def committee_membership(self):
         """
         Make sure you colect all 'present'
@@ -4056,34 +4069,49 @@ class Grade_reps(object):
 
         house_membership = pd.read_sql_query("""
         SELECT DISTINCT bioguide_id,
-        count(bioguide_id) memberhip
+        count(bioguide_id) membership
         FROM house_membership
         GROUP BY bioguide_id
         """, open_connection())
 
         senate_membership = pd.read_sql_query("""
         SELECT DISTINCT bioguide_id,
-        count(bioguide_id) memberhip
+        count(bioguide_id) membership
         FROM senate_membership
         GROUP BY bioguide_id
         """, open_connection())
+        
+        
+        ## z-scores
+        mew = house_membership['membership'].median()
+        standard_d = np.std(house_membership['membership'])
+        house_membership.loc[:, 'z_scores'] = house_membership.loc[:, 'membership'].apply(lambda x: (x - mew)/standard_d)
+
+        ## Convert z-scores
+        house_membership.loc[house_membership['z_scores'] >= 0, 'membership_grade'] = house_membership.loc[house_membership['z_scores'] >= 0, 'z_scores'].apply(lambda x: 75 + (75 * ((1/3) * (x / house_membership['z_scores'].max()))))
+        house_membership.loc[house_membership['z_scores'] < 0, 'membership_grade'] = house_membership.loc[house_membership['z_scores'] < 0, 'z_scores'].apply(lambda x: 75 + (75 * (x / house_membership['z_scores'].max())))
+        
+        
+        ## z-scores
+        mew = senate_membership['membership'].median()
+        standard_d = np.std(senate_membership['membership'])
+        senate_membership.loc[:, 'z_scores'] = senate_membership.loc[:, 'membership'].apply(lambda x: (x - mew)/standard_d)
+
+        ## Convert z-scores
+        senate_membership.loc[senate_membership['z_scores'] >= 0, 'membership_grade'] = senate_membership.loc[senate_membership['z_scores'] >= 0, 'z_scores'].apply(lambda x: 75 + (75 * ((1/3) * (x / senate_membership['z_scores'].max()))))
+        senate_membership.loc[senate_membership['z_scores'] < 0, 'membership_grade'] = senate_membership.loc[senate_membership['z_scores'] < 0, 'z_scores'].apply(lambda x: 75 + (75 * (x / senate_membership['z_scores'].max())))
+        
+        
 
         ## Join all
         all_membersip = house_membership.append(senate_membership)
         df = pd.merge(df, all_membersip, how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
 
-        ## Percentile by chamber
-        x = df.loc[df['chamber'] == 'house', 'memberhip']
-        df.loc[df['chamber'] == 'house', 'memberhip_percent'] = [stats.percentileofscore(x, a, 'weak') for a in x]
-        x = df.loc[df['chamber'] == 'senate', 'memberhip']
-        df.loc[df['chamber'] == 'senate', 'memberhip_percent'] = [stats.percentileofscore(x, a, 'weak') for a in x]
 
-        ## Convert to percent
-        df.loc[:, 'memberhip_percent'] = df.loc[:, 'memberhip_percent']/100
-        
+
         ## Reduce weight
-        df['memberhip_percent'] = df['memberhip_percent']*.5
-        self.committee_membership = df
+        df['membership_percent'] = df['membership_grade']/200
+        self.committee_membership = df[['bioguide_id', 'chamber', 'membership', 'membership_percent']]
         
     def committee_leadership(self):
         """
@@ -4164,7 +4192,7 @@ class Grade_reps(object):
         total_grades = pd.merge(total_grades, self.leadership_df[['bioguide_id', 'position']],
                                     how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
         if self.congress == 115:
-            total_grades = pd.merge(total_grades, self.committee_membership[['bioguide_id', 'memberhip_percent']],
+            total_grades = pd.merge(total_grades, self.committee_membership[['bioguide_id', 'membership_percent']],
                                     how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
             total_grades = pd.merge(total_grades, self.committee_leadership[['bioguide_id', 'leadership']],
                                     how='left', on='bioguide_id').drop_duplicates('bioguide_id').fillna(0)
@@ -4174,7 +4202,7 @@ class Grade_reps(object):
         if self.congress == 115:
             total_grades['total_grade'] = (((total_grades['participation_percent']*2) + 
                                            total_grades['sponsor_percent'] +
-                                          total_grades['memberhip_percent'])/3)
+                                          total_grades['membership_percent'])/3)
         else:
             total_grades['total_grade'] = (((total_grades['participation_percent']*2) +
                                            total_grades['sponsor_percent'])/2.5)
@@ -4245,7 +4273,7 @@ class Grade_reps(object):
                                                     'position',
                                                     'letter_grade',
                                                     'letter_grade_extra_credit',
-                                                    'memberhip_percent',
+                                                    'membership_percent',
                                                     'participation_percent',
                                                     'sponsor_percent',
                                                     'total_grade',
@@ -4265,20 +4293,20 @@ class Grade_reps(object):
                 leadership_position,
                 letter_grade,
                 letter_grade_extra_credit,
-                memberhip_percent,
+                membership_percent,
                 participation_percent,
                 sponsor_percent,
                 total_grade,
                 total_grade_extra_credit,
                 tracker)
                 VALUES ('{bioguide_id}', '{chamber}', '{congress}', '{leadership}',
-                 '{leadership_position}', '{letter_grade}', '{letter_grade_extra_credit}', '{memberhip_percent}', 
+                 '{leadership_position}', '{letter_grade}', '{letter_grade_extra_credit}', '{membership_percent}', 
                  '{participation_percent}', '{sponsor_percent}', '{total_grade}', 
                  '{total_grade_extra_credit}', '{tracker}');"""
 
 
                 sql_command = format_str.format(bioguide_id=p[0], chamber=p[1], congress=int(p[2]), leadership=int(p[3]),
-                 leadership_position=p[4], letter_grade=p[5], letter_grade_extra_credit=p[6], memberhip_percent=p[7], 
+                 leadership_position=p[4], letter_grade=p[5], letter_grade_extra_credit=p[6], membership_percent=p[7], 
                  participation_percent=p[8], sponsor_percent=p[9], total_grade=p[10], 
                 total_grade_extra_credit=p[11], tracker=int(p[12]))
 
@@ -4297,7 +4325,7 @@ class Grade_reps(object):
                     leadership_position='{}',
                     letter_grade='{}', 
                     letter_grade_extra_credit='{}', 
-                    memberhip_percent='{}', 
+                    membership_percent='{}', 
                     participation_percent='{}',  
                     sponsor_percent='{}',
                     total_grade='{}', 
@@ -4309,7 +4337,7 @@ class Grade_reps(object):
                     self.congress_grades.loc[i, 'position'],
                     self.congress_grades.loc[i, 'letter_grade'],
                     self.congress_grades.loc[i, 'letter_grade_extra_credit'],
-                    self.congress_grades.loc[i, 'memberhip_percent'],
+                    self.congress_grades.loc[i, 'membership_percent'],
                     self.congress_grades.loc[i, 'participation_percent'],
                     self.congress_grades.loc[i, 'sponsor_percent'],
                     self.congress_grades.loc[i, 'total_grade'],
