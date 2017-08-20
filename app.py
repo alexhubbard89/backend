@@ -511,14 +511,16 @@ def to_sql_api():
     
     json_dict = request.get_json()
     api_to_sql.record_df = pd.DataFrame(json_dict['df'])
-    api_to_sql.record_df['date'] = pd.to_datetime(api_to_sql.record_df['date'])
-    chamber = json_dict['chamber']
+    api_to_sql.record_df['time'] = pd.to_datetime(api_to_sql.record_df['time'])
+    api_to_sql.record_df['time'] = pd.to_datetime(api_to_sql.record_df['now'])
+    table = json_dict['table']
+    uid = [json_dict['uid']]
     
 
 
-    data = {'df': api_to_sql.record_df.to_dict(orient='records'), 'chamber': chamber}
+    data = {'df': api_to_sql.record_df.to_dict(orient='records'), 'table': table}
     print 'put to sql'
-    reports_tools.Congressional_report_collector.record_to_sql(api_to_sql, "congressional_record_{}".format(chamber), uid=['index'])
+    reports_tools.Congressional_report_collector.record_to_sql(api_to_sql, table, uid=uid)
     return 'ALL GOOD!'
 
 
