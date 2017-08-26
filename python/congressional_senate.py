@@ -12,21 +12,21 @@ except:
     tally_toolkit = imp.load_source('module', 'tally_toolkit.py')
     reports_tools = imp.load_source('module', 'reports_tools.py')
 
-print "daily report collection"
-try:
-    print "for house"
-    ## New recoreds
-    reports_tools.Congressional_report_collector.collect_missing_records('house')
-    good_collection += """\n\tCongressional reports House"""
-except:
-    bad_collection += """\n\tCongressional reports House"""
+# print "daily report collection"
+# try:
+#     print "for house"
+#     ## New recoreds
+#     reports_tools.Congressional_report_collector.collect_missing_records('house')
+#     good_collection += """\n\tCongressional reports House"""
+# except:
+#     bad_collection += """\n\tCongressional reports House"""
 
-try:
-    print "for senate"
-    reports_tools.Congressional_report_collector.collect_missing_records('senate')
-    good_collection += """\n\tCongressional reports Senate"""
-except:
-    bad_collection += """\n\tCongressional reports Senate"""
+# try:
+#     print "for senate"
+#     reports_tools.Congressional_report_collector.collect_missing_records('senate')
+#     good_collection += """\n\tCongressional reports Senate"""
+# except:
+#     bad_collection += """\n\tCongressional reports Senate"""
 
 print "clean the transcripts"
 try:
