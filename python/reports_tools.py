@@ -103,7 +103,7 @@ class Congressional_report_collector(object):
                 ## Convert to date time when saving to array
                 date_list.append(pd.to_datetime(search_date))
     
-    @staticmethod
+    # @staticmethod
     def collect_subjets_and_links(self, year, month, day, chamber):
         """
         Looks for congressional record information for 
@@ -126,11 +126,37 @@ class Congressional_report_collector(object):
         """
         
         url = "https://www.congress.gov/congressional-record/{}/{}/{}/{}-section".format("{}".format(year).zfill(4),
-                                                                     "{}".format(month).zfill(2), 
-                                                                     "{}".format(day).zfill(2),
+                                                                     "{}".format(month), 
+                                                                     "{}".format(day),
                                                                     chamber.lower())
-        r = requests.get(url)
+        print url
+        try_again = True
+
+        while try_again == True:
+            s = requests.session()
+            ## Get prxoy IP address
+            spoof_df = Ip_Spoofer.random_ip()
+            print spoof_df
+            ip = str(spoof_df.loc[0, spoof_df.columns[0]])
+            port = str(spoof_df.loc[0, spoof_df.columns[1]])
+            proxies = {
+              'http': '{}:{}'.format(ip, port),
+            }
+            s.proxies.update(proxies)
+            a = requests.adapters.HTTPAdapter(max_retries=5)
+            s.mount('https://', a)
+            headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+            s.headers.update(headers)
+            r = s.get(url)
+            print r.status_code
+            if (r.status_code != 200) & (r.status_code != 404):
+                print "bad status. trying get ip to collect sujects and links"
+            else:
+                try_again = False
+
+        
         page = BeautifulSoup(r.content, 'lxml')
+
         
         try:
             body = page.find("tbody")
@@ -154,7 +180,32 @@ class Congressional_report_collector(object):
 
         ## Request page
         print self.links[index]
-        r = requests.get(self.links[index])
+        try_again = True
+
+        while try_again == True:
+            s = requests.session()
+            ## Get prxoy IP address
+            spoof_df = Ip_Spoofer.random_ip()
+            print spoof_df
+            ip = str(spoof_df.loc[0, spoof_df.columns[0]])
+            port = str(spoof_df.loc[0, spoof_df.columns[1]])
+            proxies = {
+              'http': '{}:{}'.format(ip, port),
+            }
+            s.proxies.update(proxies)
+            a = requests.adapters.HTTPAdapter(max_retries=5)
+            s.mount('https://', a)
+            headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+            s.headers.update(headers)
+            r = s.get(self.links[index])
+            print r.status_code
+            if r.status_code == 200:
+                try_again = False
+            else:
+                print "bad status. trying get ip to collect text"
+            
+        print "fixed"
+
         page = BeautifulSoup(r.content, 'lxml')
         page = page.find('div', class_='txt-box')
 
@@ -521,3 +572,115 @@ class Congressional_report_collector(object):
             SELECT * FROM congress_bio
             ;
             """, open_connection())
+
+class Ip_Spoofer(object):
+    """
+    This will be used to find a random IP and Port to proxy to.
+    The need for this is because congress Blacklists a website when
+    it looks like a bot, and doesn't allow blacklisted IPs to access 
+    their website. So to get aroudn this I am using a proxy IP address.
+    
+    """    
+    
+    def free_proxy_list_net(self):
+
+        s = requests.session()
+        url = "https://free-proxy-list.net/"
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+        s.headers.update(headers)
+        r = s.get(url)
+        if r.status_code != 200: 
+            return False
+
+
+        page = BeautifulSoup(r.content, 'lxml')
+        table = page.find('table', id='proxylisttable')
+
+        cols = []
+        for t in table.find('thead').findAll('th'):
+            cols.append(t.text)
+
+        proxy_df = pd.DataFrame(data=[], columns=cols)
+        body = table.find('tbody')
+        tr_list = body.findAll('tr')
+
+        for tr_num in range(len(tr_list)):
+            length = len(proxy_df)
+            row = tr_list[tr_num].findAll('td')
+
+            for i in range(len(row)):
+                proxy_df.loc[length, cols[i]] = row[i].text
+
+        self.proxy_df = proxy_df.head(50)
+
+    def hide_my_name(self):
+
+        s = requests.session()
+        url = "https://hidemy.name/en/proxy-list/"
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+        s.headers.update(headers)
+        r = s.get(url)
+        if r.status_code != 200: 
+            return False
+
+
+        page = BeautifulSoup(r.content, 'lxml')
+        table = page.find('table', class_='proxy__t')
+
+        cols = []
+        for t in table.find('thead').findAll('th'):
+            cols.append(t.text)
+
+        proxy_df = pd.DataFrame(data=[], columns=cols)
+        body = table.find('tbody')
+        tr_list = body.findAll('tr')
+
+        for tr_num in range(len(tr_list)):
+            length = len(proxy_df)
+            row = tr_list[tr_num].findAll('td')
+
+            for i in range(len(row)):
+                proxy_df.loc[length, cols[i]] = row[i].text
+
+        self.proxy_df = proxy_df.head(50)
+
+    @staticmethod
+    def check_ip(ip, port):
+        s = requests.session()
+        proxies = {
+          'http': '{}:{}'.format(ip, port),
+        }
+        s.proxies.update(proxies)    
+        a = requests.adapters.HTTPAdapter(max_retries=5)
+        s.mount('http://', a)
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+        s.headers.update(headers)
+        try:
+            r = s.get('http://ip.42.pl/raw')
+            if r.status_code == 200:
+                return True
+            else:
+                return False
+        except:
+            return False
+        
+    @staticmethod
+    def random_ip():
+        spoof = Ip_Spoofer()
+        num_list = [Ip_Spoofer.free_proxy_list_net, Ip_Spoofer.hide_my_name]
+        rand_num = np.random.choice(len(num_list))
+        num_list[rand_num](spoof)
+
+        indexes = list(spoof.proxy_df.index)    
+        while len(indexes) > 0:
+            rand_num = np.random.choice(indexes)
+
+            x = pd.DataFrame([spoof.proxy_df.loc[rand_num, spoof.proxy_df.columns[:2]]]).reset_index(drop=True)
+            good_ip = Ip_Spoofer.check_ip(str(x.loc[0, x.columns[0]]), str(x.loc[0, x.columns[1]]))
+            if good_ip == True:
+                indexes = list(set(indexes) - set([rand_num]))
+                return x
+        return "No working IP"
+    
+    def __init__(self):
+        self.proxy_df = pd.DataFrame()

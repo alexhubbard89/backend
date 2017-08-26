@@ -5,14 +5,16 @@ from email.mime.text import MIMEText
 from sqlalchemy import create_engine
 import pandas as pd
 import imp
-collect_current_congress = imp.load_source('module', './python/collect_current_congress.py')
-tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
-reports_tools = imp.load_source('module', './python/reports_tools.py')
+try:
+    collect_current_congress = imp.load_source('module', './python/collect_current_congress.py')
+    tally_toolkit = imp.load_source('module', './python/tally_toolkit.py')
+    reports_tools = imp.load_source('module', './python/reports_tools.py')
 
-# # # For testing
-# collect_current_congress = imp.load_source('module', 'collect_current_congress.py')
-# tally_toolkit = imp.load_source('module', 'tally_toolkit.py')
-# reports_tools = imp.load_source('module', 'reports_tools.py')
+except:
+    # # For testing
+    collect_current_congress = imp.load_source('module', 'collect_current_congress.py')
+    tally_toolkit = imp.load_source('module', 'tally_toolkit.py')
+    reports_tools = imp.load_source('module', 'reports_tools.py')
 
 fromaddr = 'tallyscraper@gmail.com'
 toaddrs = 'alexhubbard89@gmail.com'
@@ -72,17 +74,17 @@ This is necessary for scoring.
 congress_data.current_congress was found when I got current congress
 data. The attribute still exists so use it.
 """
-# try:
-leg_collection = tally_toolkit.collect_legislation()
-leg_collection.congress_search = tally_toolkit.current_congress_num()
-tally_toolkit.collect_legislation.legislation_info_by_congress(leg_collection)
-tally_toolkit.collect_legislation.legislation_to_sql(leg_collection)
-good_collection += """\n\tLegislation collected for {} congress - New data: {}, Update data: {}""".format(
-    leg_collection.congress_search,
-    leg_collection.new_data,
-    leg_collection.updated_data)
-# except:
-#     bad_collection += """\n\tLegislation collector"""
+try:
+    leg_collection = tally_toolkit.collect_legislation()
+    leg_collection.congress_search = tally_toolkit.current_congress_num()
+    tally_toolkit.collect_legislation.legislation_info_by_congress(leg_collection)
+    tally_toolkit.collect_legislation.legislation_to_sql(leg_collection)
+    good_collection += """\n\tLegislation collected for {} congress - New data: {}, Update data: {}""".format(
+        leg_collection.congress_search,
+        leg_collection.new_data,
+        leg_collection.updated_data)
+except:
+    bad_collection += """\n\tLegislation collector"""
 
 try:
     leg_collection = tally_toolkit.collect_legislation()
@@ -259,8 +261,8 @@ try:
     reports_tools.Congressional_report_collector.collect_missing_records('house')
     good_collection += """\n\tCongressional reports House"""
 
-    ## Check the null records
-    reports_tools.Congressional_report_collector.collect_missing_records('house', type='null')
+    # ## Check the null records
+    # reports_tools.Congressional_report_collector.collect_missing_records('house', type='null')
     good_collection += """\n\tCongressional reports House"""
 except:
     bad_collection += """\n\tCongressional reports House"""
@@ -270,8 +272,8 @@ try:
     reports_tools.Congressional_report_collector.collect_missing_records('senate')
     good_collection += """\n\tCongressional reports Senate"""
 
-    ## Check the null records
-    reports_tools.Congressional_report_collector.collect_missing_records('senate', type='null')
+    # ## Check the null records
+    # reports_tools.Congressional_report_collector.collect_missing_records('senate', type='null')
     good_collection += """\n\tCongressional reports Senate"""
 except:
     bad_collection += """\n\tCongressional reports Senate"""
